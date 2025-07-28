@@ -1,0 +1,1269 @@
+/* 기본 설정 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-bg: #f2f2f7;
+    --secondary-bg: #ffffff;
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --text-primary: #1c1c1e;
+    --text-secondary: #8e8e93;
+    --accent-blue: #007aff;
+    --accent-red: #ff3b30;
+    --border-color: rgba(60, 60, 67, 0.18);
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    --blur-bg: rgba(242, 242, 247, 0.8);
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    line-height: 1.5;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.app-container {
+    min-height: 100vh;
+    max-width: 800px;
+    margin: 0 auto;
+    background: var(--primary-bg);
+}
+
+/* 인증 화면 */
+.auth-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--primary-bg) 0%, #e8f4f8 100%);
+}
+
+.auth-container {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+    animation: authSlideUp 0.6s ease;
+}
+
+@keyframes authSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.auth-icon {
+    color: var(--accent-blue);
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: center;
+}
+
+.auth-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+}
+
+.auth-description {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    line-height: 1.5;
+}
+
+.auth-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.auth-btn {
+    width: 100%;
+    height: 56px;
+    border: none;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.google-btn {
+    background: white;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.google-btn:hover {
+    background: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+}
+
+.anonymous-btn {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.anonymous-btn:hover {
+    background: #0056cc;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 122, 255, 0.3);
+}
+
+.auth-btn:active {
+    transform: translateY(0);
+}
+
+.auth-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.auth-btn-text {
+    transition: opacity 0.3s ease;
+}
+
+.auth-loading {
+    position: absolute;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.auth-btn.loading .auth-btn-text {
+    opacity: 0;
+}
+
+.auth-btn.loading .auth-loading {
+    opacity: 1;
+}
+
+.google-icon {
+    flex-shrink: 0;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.auth-notes {
+    text-align: left;
+}
+
+.auth-note {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 6px 0;
+    opacity: 0.9;
+}
+
+.auth-note.primary {
+    color: var(--accent-blue);
+    font-weight: 500;
+}
+
+.auth-note.secondary {
+    color: var(--text-secondary);
+}
+
+.main-app {
+    min-height: 100vh;
+}
+
+/* 헤더 */
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--blur-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.app-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+}
+
+.user-menu-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    border: none;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border-color);
+}
+
+.user-menu-btn:hover {
+    background: rgba(0, 122, 255, 0.1);
+    border-color: var(--accent-blue);
+}
+
+.user-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    min-width: 280px;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px) scale(0.95);
+    transition: all 0.2s ease;
+    z-index: 1000;
+    margin-top: 8px;
+}
+
+.user-menu.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.user-info {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 24px;
+    background: var(--accent-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 18px;
+    overflow: hidden;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-email {
+    font-size: 14px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.menu-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0 20px;
+}
+
+.menu-item {
+    width: 100%;
+    padding: 16px 20px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.menu-item:hover {
+    background: rgba(0, 122, 255, 0.08);
+}
+
+.menu-item svg {
+    color: var(--text-secondary);
+}
+
+.select-mode-btn {
+    background: none;
+    border: none;
+    color: var(--accent-blue);
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+}
+
+.select-mode-btn:hover {
+    background: rgba(0, 122, 255, 0.1);
+}
+
+.new-note-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+    border: none;
+    background: var(--accent-blue);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow);
+}
+
+.new-note-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+}
+
+.new-note-btn:active {
+    transform: scale(0.95);
+}
+
+/* 선택 모드 헤더 */
+.selection-header {
+    display: none;
+    background: var(--accent-blue);
+    color: white;
+    padding: 12px 20px;
+    animation: slideDown 0.3s ease;
+}
+
+.selection-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.cancel-selection-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+}
+
+.cancel-selection-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.selection-info {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.selection-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.select-all-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.select-all-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.delete-selected-btn {
+    background: var(--accent-red);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.delete-selected-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(255, 59, 48, 0.4);
+}
+
+.delete-selected-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 메인 컨텐츠 */
+.main-content {
+    padding: 20px;
+}
+
+.notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 메모 카드 */
+.note-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    min-height: 120px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.note-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    border-color: var(--accent-blue);
+}
+
+.note-card:active {
+    transform: translateY(0);
+}
+
+.note-card.selected {
+    border-color: var(--accent-blue);
+    background: rgba(0, 122, 255, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 122, 255, 0.15);
+}
+
+/* 선택 모드에서 메모 카드 레이아웃 */
+.selection-mode .note-card {
+    padding: 16px 20px;
+}
+
+.note-checkbox-container {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.note-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    border: 2px solid var(--border-color);
+    appearance: none;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.note-checkbox:checked {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+}
+
+.note-checkbox:checked::after {
+    content: '✓';
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.note-checkbox:hover {
+    border-color: var(--accent-blue);
+}
+
+.note-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.note-preview {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    word-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.note-date {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* 선택 모드가 아닐 때는 체크박스 숨기기 */
+body:not(.selection-mode) .note-checkbox-container {
+    display: none;
+}
+
+body:not(.selection-mode) .note-card {
+    padding: 20px;
+}
+
+body:not(.selection-mode) .note-content {
+    width: 100%;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.empty-state p {
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+/* 모달 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal {
+    background: var(--secondary-bg);
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-width: 800px;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.15);
+}
+
+.modal-overlay.active .modal {
+    transform: translateY(0);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--blur-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    color: var(--accent-blue);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+}
+
+.modal-close-btn:hover {
+    background: rgba(0, 122, 255, 0.1);
+}
+
+.modal-delete-btn {
+    background: none;
+    border: none;
+    color: var(--accent-red);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-delete-btn:hover {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+.modal-content {
+    flex: 1;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.note-textarea {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 24px;
+    font-size: 16px;
+    line-height: 1.6;
+    font-family: inherit;
+    background: transparent;
+    color: var(--text-primary);
+    resize: none;
+    overflow-y: auto;
+}
+
+.note-textarea::placeholder {
+    color: var(--text-secondary);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .header-content {
+        padding: 12px 16px;
+    }
+    
+    .app-title {
+        font-size: 24px;
+    }
+    
+    .header-actions {
+        gap: 8px;
+    }
+    
+    .select-mode-btn {
+        font-size: 14px;
+        padding: 6px 12px;
+    }
+    
+    .new-note-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 20px;
+    }
+    
+    /* 선택 모드 헤더 모바일 최적화 */
+    .selection-header {
+        padding: 10px 16px;
+    }
+    
+    .selection-content {
+        gap: 8px;
+    }
+    
+    .cancel-selection-btn {
+        font-size: 14px;
+        padding: 6px 12px;
+    }
+    
+    .selection-info {
+        font-size: 14px;
+        font-weight: 600;
+    }
+    
+    .selection-actions {
+        gap: 8px;
+    }
+    
+    .select-all-btn {
+        font-size: 12px;
+        padding: 4px 8px;
+    }
+    
+    .delete-selected-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 16px;
+    }
+    
+    .delete-selected-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .main-content {
+        padding: 16px;
+    }
+    
+    .notes-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .note-card {
+        padding: 14px;
+        border-radius: 12px;
+        gap: 12px;
+        min-height: 100px;
+    }
+    
+    .selection-mode .note-card {
+        padding: 12px 14px;
+    }
+    
+    .note-checkbox {
+        width: 18px;
+        height: 18px;
+        border-radius: 9px;
+    }
+    
+    .note-checkbox:checked::after {
+        font-size: 10px;
+    }
+    
+    .note-preview {
+        font-size: 15px;
+        -webkit-line-clamp: 3;
+        margin-bottom: 8px;
+    }
+    
+    .note-date {
+        font-size: 12px;
+    }
+    
+    .modal {
+        height: 90vh;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .modal-header {
+        padding: 12px 16px;
+    }
+    
+    .note-textarea {
+        padding: 16px 12px;
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-content {
+        padding: 10px 12px;
+    }
+    
+    .app-title {
+        font-size: 20px;
+    }
+    
+    .header-actions {
+        gap: 6px;
+    }
+    
+    .select-mode-btn {
+        font-size: 13px;
+        padding: 5px 10px;
+    }
+    
+    .new-note-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 18px;
+    }
+    
+    .new-note-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+    
+    /* 선택 모드 헤더 소형 모바일 최적화 */
+    .selection-header {
+        padding: 8px 12px;
+    }
+    
+    .cancel-selection-btn {
+        font-size: 13px;
+        padding: 5px 10px;
+    }
+    
+    .selection-info {
+        font-size: 13px;
+    }
+    
+    .select-all-btn {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+    
+    .delete-selected-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 14px;
+    }
+    
+    .delete-selected-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+    
+    .main-content {
+        padding: 12px;
+    }
+    
+    .notes-grid {
+        gap: 10px;
+    }
+    
+    .note-card {
+        padding: 12px;
+        gap: 10px;
+        min-height: 90px;
+        border-radius: 10px;
+    }
+    
+    .selection-mode .note-card {
+        padding: 10px 12px;
+    }
+    
+    .note-checkbox {
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        border-width: 1.5px;
+    }
+    
+    .note-checkbox:checked::after {
+        font-size: 9px;
+    }
+    
+    .note-preview {
+        font-size: 14px;
+        -webkit-line-clamp: 2;
+        margin-bottom: 6px;
+    }
+    
+    .note-date {
+        font-size: 11px;
+    }
+    
+    .modal {
+        height: 95vh;
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .modal-header {
+        padding: 10px 12px;
+    }
+    
+    .modal-close-btn {
+        font-size: 14px;
+        padding: 6px 12px;
+    }
+    
+    .modal-delete-btn {
+        padding: 6px;
+    }
+    
+    .modal-delete-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .note-textarea {
+        padding: 14px 10px;
+        font-size: 14px;
+    }
+}
+
+/* 다크 모드 대응 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-bg: #000000;
+        --secondary-bg: #1c1c1e;
+        --card-bg: rgba(28, 28, 30, 0.85);
+        --text-primary: #ffffff;
+        --text-secondary: #8e8e93;
+        --border-color: rgba(84, 84, 88, 0.6);
+        --blur-bg: rgba(0, 0, 0, 0.8);
+    }
+}
+
+/* 스크롤바 스타일링 */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--text-secondary);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-primary);
+}
+
+/* 애니메이션 최적화 */
+.note-card,
+.new-note-btn,
+.modal-close-btn,
+.modal-delete-btn {
+    will-change: transform, box-shadow;
+}
+
+/* 성능 최적화를 위한 하드웨어 가속 */
+.modal-overlay,
+.modal,
+.header {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+}
+
+/* 터치 인터페이스 최적화 */
+@media (hover: none) and (pointer: coarse) {
+    /* 터치 디바이스에서 호버 효과 제거 */
+    .note-card:hover {
+        transform: none;
+        box-shadow: var(--shadow);
+        border-color: var(--border-color);
+    }
+    
+    .select-mode-btn:hover,
+    .cancel-selection-btn:hover,
+    .select-all-btn:hover {
+        background: none;
+    }
+    
+    .new-note-btn:hover,
+    .delete-selected-btn:hover {
+        transform: none;
+        box-shadow: var(--shadow);
+    }
+    
+    /* 터치 대상 크기 최적화 (최소 44px) */
+    .note-checkbox-container {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .select-mode-btn,
+    .cancel-selection-btn,
+    .select-all-btn {
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+}
+
+/* iOS 스타일 스크롤 */
+@supports (-webkit-overflow-scrolling: touch) {
+    .note-textarea,
+    .main-content {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* 안전 영역 지원 (iPhone X 이후) */
+@supports (padding: max(0px)) {
+    .app-container {
+        padding-left: max(env(safe-area-inset-left), 0px);
+        padding-right: max(env(safe-area-inset-right), 0px);
+    }
+    
+    .header {
+        padding-top: max(env(safe-area-inset-top), 0px);
+    }
+    
+    .modal {
+        padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    }
+}
+
+/* 모바일 전용 터치 액션 */
+.note-card,
+.note-checkbox,
+.select-mode-btn,
+.new-note-btn,
+.cancel-selection-btn,
+.select-all-btn,
+.delete-selected-btn {
+    touch-action: manipulation;
+}
+
+/* PWA 설치 버튼 */
+.pwa-install-btn {
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+}
+
+.pwa-install-btn:hover {
+    background: #0056cc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.pwa-install-btn:active {
+    transform: translateY(0);
+}
+
+.pwa-install-btn svg {
+    flex-shrink: 0;
+}
+
+/* PWA 알림 스타일 */
+.update-notification,
+.install-success-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    padding: 16px 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border: 1px solid var(--border-color);
+    z-index: 10000;
+    animation: slideInRight 0.3s ease;
+    max-width: 320px;
+}
+
+.install-success-notification {
+    background: rgba(52, 199, 89, 0.1);
+    border-color: rgba(52, 199, 89, 0.3);
+    color: #34c759;
+}
+
+.update-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.update-content span {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.update-content button {
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.update-content button:hover {
+    background: #0056cc;
+}
+
+.success-content {
+    color: #34c759;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 모바일에서 PWA 설치 버튼 최적화 */
+@media (max-width: 768px) {
+    .pwa-install-btn {
+        padding: 6px 10px;
+        font-size: 13px;
+        border-radius: 10px;
+    }
+    
+    .pwa-install-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .update-notification,
+    .install-success-notification {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        padding: 12px 16px;
+    }
+    
+    .update-content {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+}
+
+/* 작은 모바일에서 PWA 최적화 */
+@media (max-width: 480px) {
+    .pwa-install-btn {
+        padding: 5px 8px;
+        font-size: 12px;
+        gap: 4px;
+    }
+    
+    .pwa-install-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+}

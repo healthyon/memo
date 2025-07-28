@@ -1,0 +1,38 @@
+{
+  "name": "memo-app-pwa",
+  "version": "1.0.0",
+  "description": "iOS 스타일의 빠르고 안전한 메모장 PWA 앱",
+  "main": "index.html",
+  "scripts": {
+    "serve": "python -m http.server 8000",
+    "build": "echo 'No build step required for vanilla PWA'",
+    "start": "python -m http.server 8000"
+  },
+  "keywords": [
+    "memo",
+    "notes",
+    "pwa",
+    "ios-style",
+    "firebase",
+    "productivity"
+  ],
+  "author": "HealthyOn",
+  "license": "MIT",
+  "homepage": "https://healthyon.github.io/memo/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/healthyon/memo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/healthyon/memo/issues"
+  },
+  "pwa": {
+    "name": "메모장",
+    "short_name": "메모장",
+    "theme_color": "#007aff",
+    "background_color": "#f2f2f7",
+    "display": "standalone",
+    "scope": "/memo/",
+    "start_url": "/memo/"
+  }
+}
