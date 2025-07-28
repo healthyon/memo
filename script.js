@@ -56,6 +56,33 @@ const elements = {
 // 빠른 DOM 준비를 위한 DOMContentLoaded
 document.addEventListener('DOMContentLoaded', initializeApp);
 
+// PWA 서비스 워커 등록
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+        try {
+            const registration = await navigator.serviceWorker.register('/memo/sw.js', {
+                scope: '/memo/'
+            });
+            console.log('서비스 워커 등록 성공:', registration.scope);
+            
+            // 업데이트 확인
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                if (newWorker) {
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log('새 버전 사용 가능');
+                            // 필요시 사용자에게 새로고침 안내
+                        }
+                    });
+                }
+            });
+        } catch (error) {
+            console.log('서비스 워커 등록 실패:', error);
+        }
+    });
+}
+
 async function initializeApp() {
     // DOM 요소 캐싱
     elements.authScreen = document.getElementById('authScreen');
