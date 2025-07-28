@@ -82,6 +82,8 @@ async function initializeApp() {
     elements.selectAllBtn = document.getElementById('selectAllBtn');
     elements.deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
     elements.selectedCount = document.getElementById('selectedCount');
+    elements.authDescription = document.getElementById('authDescription');
+    elements.autoLoginLoading = document.getElementById('autoLoginLoading');
 
     // 이벤트 리스너 등록
     setupEventListeners();
@@ -95,17 +97,29 @@ async function initializeApp() {
 
 // 인증된 사용자용 앱 초기화
 async function initializeAuthenticatedApp() {
-    // 저장된 메모 로드 및 실시간 리스너 설정
-    await loadNotes();
+    console.log('메인 앱 초기화 시작');
     
-    // 초기 렌더링
-    renderNotes();
-    
-    // 오프라인/온라인 상태 모니터링
-    setupNetworkStatusListener();
-    
-    // 화면 전환
-    showMainApp();
+    try {
+        // 저장된 메모 로드 및 실시간 리스너 설정
+        console.log('메모 로드 중...');
+        await loadNotes();
+        
+        // 초기 렌더링
+        console.log('메모 렌더링 중...');
+        renderNotes();
+        
+        // 오프라인/온라인 상태 모니터링
+        setupNetworkStatusListener();
+        
+        // 화면 전환
+        console.log('메인 앱 화면으로 전환');
+        showMainApp();
+        
+        console.log('메인 앱 초기화 완료');
+    } catch (error) {
+        console.error('메인 앱 초기화 오류:', error);
+        showAuthScreen();
+    }
 }
 
 // Firebase 초기화 대기
@@ -258,21 +272,29 @@ function setupAuthStateListener() {
     import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js')
         .then(({ onAuthStateChanged }) => {
             onAuthStateChanged(auth, (user) => {
+                console.log('인증 상태 변경:', user ? `로그인됨 (${user.uid})` : '로그인 안됨');
+                console.log('isFirstLoad:', isFirstLoad);
+                
                 currentUser = user;
-                if (user && !isFirstLoad) {
-                    // 사용자가 직접 로그인한 경우에만 메인 앱으로 진행
-                    console.log('사용자 인증됨:', user.uid);
+                if (user && isFirstLoad) {
+                    // 첫 로드시 기존 세션이 있는 경우 (자동 로그인)
+                    console.log('자동 로그인 감지:', user.uid, user.email);
                     updateUserInfo(user);
-                    initializeAuthenticatedApp();
-                } else {
-                    // 첫 로드시 또는 로그아웃시 항상 로그인 화면 표시
-                    console.log('로그인 화면 표시');
+                    
+                    showAutoLoginLoading();
+                    setTimeout(() => {
+                        console.log('자동 로그인 완료 - 메인 앱으로 전환');
+                        initializeAuthenticatedApp();
+                        isFirstLoad = false;
+                    }, 800);
+                } else if (!user) {
+                    // 인증되지 않은 경우에만 로그인 화면 표시
+                    console.log('로그인 필요 - 로그인 화면 표시');
                     showAuthScreen();
-                    if (user) {
-                        // 기존 세션이 있어도 사용자 정보만 미리 업데이트
-                        updateUserInfo(user);
-                    }
+                    isFirstLoad = false;
                 }
+                // 사용자가 직접 로그인한 경우(!isFirstLoad && user)는 
+                // 로그인 함수에서 직접 처리하므로 여기서는 무시
             });
         });
 }
@@ -318,7 +340,18 @@ async function handleGoogleSignIn() {
         
         if (result) {
             console.log('Google 로그인 성공:', result.user.email);
+            console.log('사용자 정보:', result.user);
             setAuthButtonLoading('google', false);
+            
+            // 첫 로드 플래그 초기화 (중요!)
+            isFirstLoad = false;
+            
+            // 명시적으로 사용자 정보 업데이트 및 앱 초기화
+            currentUser = result.user;
+            updateUserInfo(result.user);
+            
+            console.log('로그인 완료 - 메인 앱 초기화 시작');
+            await initializeAuthenticatedApp();
         }
     } catch (error) {
         console.error('Google 로그인 오류:', error);
@@ -366,8 +399,18 @@ async function handleAnonymousSignIn() {
     
     try {
         const { signInAnonymously } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-        await signInAnonymously(auth);
+        const result = await signInAnonymously(auth);
         console.log('익명 로그인 성공');
+        
+        // 첫 로드 플래그 초기화
+        isFirstLoad = false;
+        
+        // 명시적으로 사용자 정보 업데이트 및 앱 초기화
+        currentUser = result.user;
+        updateUserInfo(result.user);
+        
+        console.log('익명 로그인 완료 - 메인 앱 초기화 시작');
+        await initializeAuthenticatedApp();
     } catch (error) {
         console.error('익명 로그인 오류:', error);
         setAuthButtonLoading('anonymous', false);
@@ -411,6 +454,34 @@ function setAuthButtonLoading(type, loading) {
 function showAuthScreen() {
     elements.authScreen.style.display = 'flex';
     elements.mainApp.style.display = 'none';
+    
+    // 모든 로그인 화면 요소들 복원
+    const authButtons = document.querySelector('.auth-buttons');
+    const authNotes = document.querySelector('.auth-notes');
+    
+    if (authButtons) authButtons.style.display = 'flex';
+    if (authNotes) authNotes.style.display = 'block';
+    if (elements.authDescription) elements.authDescription.style.display = 'block';
+    if (elements.autoLoginLoading) elements.autoLoginLoading.style.display = 'none';
+}
+
+// 자동 로그인 로딩 표시
+function showAutoLoginLoading() {
+    elements.authScreen.style.display = 'flex';
+    elements.mainApp.style.display = 'none';
+    
+    // 로그인 버튼들과 설명 숨기기
+    const authButtons = document.querySelector('.auth-buttons');
+    const authNotes = document.querySelector('.auth-notes');
+    
+    if (authButtons) authButtons.style.display = 'none';
+    if (authNotes) authNotes.style.display = 'none';
+    if (elements.authDescription) elements.authDescription.style.display = 'none';
+    
+    // 자동 로그인 로딩 표시
+    if (elements.autoLoginLoading) {
+        elements.autoLoginLoading.style.display = 'block';
+    }
 }
 
 // 메인 앱 화면 표시
