@@ -1,15 +1,14 @@
 // 서비스 워커 - PWA 캐싱 및 오프라인 지원
-const CACHE_NAME = 'memo-app-v1.0.2';
-const STATIC_CACHE = 'memo-static-v1.0.2';
-const DYNAMIC_CACHE = 'memo-dynamic-v1.0.2';
+const CACHE_NAME = 'memo-app-v1.0.3';
+const STATIC_CACHE = 'memo-static-v1.0.3';
+const DYNAMIC_CACHE = 'memo-dynamic-v1.0.3';
 
 const CACHE_URLS = [
-  './',
+  '.',
   './index.html',
   './style.css',
   './script.js',
-  './manifest.json',
-  './sw.js'
+  './manifest.json'
 ];
 
 const FONT_URLS = [
