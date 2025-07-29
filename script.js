@@ -454,9 +454,19 @@ function setupAuthStateListener() {
 
 // Google 로그인 처리
 async function handleGoogleSignIn() {
+    console.log('Google 로그인 버튼 클릭됨');
+    
+    // Firebase가 로드되지 않았다면 먼저 로드
     if (!auth) {
-        console.error('Firebase Auth가 초기화되지 않았습니다.');
-        return;
+        console.log('Firebase Auth 로딩 중...');
+        setAuthButtonLoading('google', true);
+        await waitForFirebase();
+        
+        if (!auth) {
+            console.error('Firebase Auth 로드 실패');
+            setAuthButtonLoading('google', false);
+            return;
+        }
     }
     
     // 첫 로드 플래그 해제 (사용자가 직접 로그인 시도)
@@ -469,7 +479,17 @@ async function handleGoogleSignIn() {
     setAuthButtonLoading('google', true);
     
     try {
-        const { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        // Firebase 모듈이 이미 로드되어 있는지 확인
+        let signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider;
+        
+        if (window.firebaseModules && window.firebaseModules.auth) {
+            // 이미 로드된 모듈 사용
+            ({ signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } = window.firebaseModules.auth);
+        } else {
+            // 새로 import
+            ({ signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'));
+        }
+        
         const provider = new GoogleAuthProvider();
         provider.addScope('profile');
         provider.addScope('email');
@@ -540,9 +560,19 @@ async function handleGoogleSignIn() {
 
 // 익명 로그인 처리
 async function handleAnonymousSignIn() {
+    console.log('익명 로그인 버튼 클릭됨');
+    
+    // Firebase가 로드되지 않았다면 먼저 로드
     if (!auth) {
-        console.error('Firebase Auth가 초기화되지 않았습니다.');
-        return;
+        console.log('Firebase Auth 로딩 중...');
+        setAuthButtonLoading('anonymous', true);
+        await waitForFirebase();
+        
+        if (!auth) {
+            console.error('Firebase Auth 로드 실패');
+            setAuthButtonLoading('anonymous', false);
+            return;
+        }
     }
     
     // 첫 로드 플래그 해제 (사용자가 직접 로그인 시도)
@@ -551,7 +581,17 @@ async function handleAnonymousSignIn() {
     setAuthButtonLoading('anonymous', true);
     
     try {
-        const { signInAnonymously } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        // Firebase 모듈이 이미 로드되어 있는지 확인
+        let signInAnonymously;
+        
+        if (window.firebaseModules && window.firebaseModules.auth) {
+            // 이미 로드된 모듈 사용
+            ({ signInAnonymously } = window.firebaseModules.auth);
+        } else {
+            // 새로 import
+            ({ signInAnonymously } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'));
+        }
+        
         const result = await signInAnonymously(auth);
         console.log('익명 로그인 성공');
         
