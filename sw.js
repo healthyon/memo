@@ -9,7 +9,9 @@ const CACHE_URLS = [
   '/memo/style.css',
   '/memo/script.js',
   '/memo/manifest.json',
-  '/memo/sw.js'
+  '/memo/sw.js',
+  '/memo/icon-192.png',
+  '/memo/icon-512.png'
 ];
 
 const FONT_URLS = [

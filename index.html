@@ -201,5 +201,73 @@
     </div>
 
     <script src="script.js"></script>
+    
+    <!-- Service Worker 등록 -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/memo/sw.js')
+                    .then((registration) => {
+                        console.log('Service Worker 등록 성공:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('Service Worker 등록 실패:', error);
+                    });
+            });
+        }
+
+        // PWA 설치 프롬프트 처리
+        let deferredPrompt;
+        let installButton;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('PWA 설치 가능');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // 설치 버튼 생성 및 표시
+            if (!installButton) {
+                installButton = document.createElement('button');
+                installButton.textContent = '앱 설치';
+                installButton.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: #007aff;
+                    color: white;
+                    border: none;
+                    border-radius: 50px;
+                    padding: 12px 24px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+                    z-index: 10000;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                `;
+                
+                installButton.addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log('설치 선택:', outcome);
+                        deferredPrompt = null;
+                        installButton.remove();
+                    }
+                });
+                
+                document.body.appendChild(installButton);
+            }
+        });
+
+        // 앱 설치 완료 후 버튼 제거
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA 설치 완료');
+            if (installButton) {
+                installButton.remove();
+            }
+            deferredPrompt = null;
+        });
+    </script>
 </body>
 </html>
