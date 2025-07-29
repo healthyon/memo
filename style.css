@@ -654,15 +654,15 @@ body:not(.selection-mode) .note-content {
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     display: flex;
     align-items: flex-end;
     justify-content: center;
     z-index: 1000;
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
 }
 
 .modal-overlay.active {
@@ -679,8 +679,9 @@ body:not(.selection-mode) .note-content {
     display: flex;
     flex-direction: column;
     transform: translateY(100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.15);
+    will-change: transform;
 }
 
 .modal-overlay.active .modal {
@@ -1045,9 +1046,25 @@ body:not(.selection-mode) .note-content {
 /* 성능 최적화를 위한 하드웨어 가속 */
 .modal-overlay,
 .modal,
-.header {
+.header,
+.new-note-btn,
+.note-card {
     will-change: transform, opacity;
     transform: translateZ(0);
+}
+
+/* 버튼 즉시 반응 */
+.new-note-btn:active,
+.auth-btn:active,
+.modal-close-btn:active {
+    transform: scale(0.95) translateZ(0);
+    transition: transform 0.05s ease;
+}
+
+/* 카드 즉시 반응 */
+.note-card:active {
+    transform: scale(0.98) translateZ(0);
+    transition: transform 0.05s ease;
 }
 
 /* 터치 인터페이스 최적화 */

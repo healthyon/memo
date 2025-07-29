@@ -10,7 +10,7 @@ let syncQueue = [];
 let notes = [];
 let currentNoteId = null;
 let saveTimeout = null;
-const AUTOSAVE_DELAY = 150; // 150ms로 단축
+const AUTOSAVE_DELAY = 100; // 100ms로 더 단축
 let isFirstLoad = true;
 let renderQueue = [];
 let isRendering = false;
@@ -872,16 +872,22 @@ async function processSyncQueue() {
 
 // 메모 목록 렌더링
 function renderNotes() {
-    if (notes.length === 0) {
-        elements.notesGrid.innerHTML = `
-            <div class="empty-state">
-                <h3>아직 메모가 없어요</h3>
-                <p>+ 버튼을 눌러 첫 번째 메모를 작성해보세요</p>
-                ${!isOnline ? '<p style="color: #ff9500; margin-top: 8px;">📱 오프라인 모드</p>' : ''}
-            </div>
-        `;
-        return;
-    }
+    // 렌더링 중복 방지
+    if (isRendering) return;
+    isRendering = true;
+    
+    requestAnimationFrame(() => {
+        if (notes.length === 0) {
+            elements.notesGrid.innerHTML = `
+                <div class="empty-state">
+                    <h3>아직 메모가 없어요</h3>
+                    <p>+ 버튼을 눌러 첫 번째 메모를 작성해보세요</p>
+                    ${!isOnline ? '<p style="color: #ff9500; margin-top: 8px;">📱 오프라인 모드</p>' : ''}
+                </div>
+            `;
+            isRendering = false;
+            return;
+        }
 
     // DocumentFragment를 사용한 성능 최적화
     const fragment = document.createDocumentFragment();
@@ -891,8 +897,10 @@ function renderNotes() {
         fragment.appendChild(noteCard);
     });
     
-    elements.notesGrid.innerHTML = '';
-    elements.notesGrid.appendChild(fragment);
+        elements.notesGrid.innerHTML = '';
+        elements.notesGrid.appendChild(fragment);
+        isRendering = false;
+    });
 }
 
 // 메모 카드 생성
@@ -970,7 +978,7 @@ function formatDate(dateString) {
 }
 
 // 새 메모 생성
-async function createNewNote() {
+function createNewNote() {
     const newNote = {
         id: generateId(),
         content: '',
@@ -978,16 +986,19 @@ async function createNewNote() {
         updatedAt: new Date().toISOString()
     };
     
-    // 로컬 배열에 추가
+    // 로컬 배열에 즉시 추가
     notes.unshift(newNote);
     
-    // Firebase에 저장
-    await saveNoteToFirebase(newNote);
-    
+    // 즉시 모달 열기 (Firebase 저장은 백그라운드에서)
     openNote(newNote.id);
+    
+    // Firebase 저장은 백그라운드에서 처리
+    setTimeout(() => {
+        saveNoteToFirebase(newNote).catch(console.warn);
+    }, 0);
 }
 
-// 메모 열기
+// 메모 열기 (즉시 반응)
 function openNote(noteId) {
     const note = notes.find(n => n.id === noteId);
     if (!note) return;
@@ -996,12 +1007,13 @@ function openNote(noteId) {
     elements.noteTextarea.value = note.content;
     elements.modalOverlay.classList.add('active');
     
-    // 약간의 지연 후 포커스 (애니메이션 완료 후)
-    setTimeout(() => {
+    // 즉시 포커스 (애니메이션과 동시 진행)
+    requestAnimationFrame(() => {
         elements.noteTextarea.focus();
         // 커서를 텍스트 끝으로 이동
-        elements.noteTextarea.setSelectionRange(note.content.length, note.content.length);
-    }, 300);
+        const contentLength = note.content.length;
+        elements.noteTextarea.setSelectionRange(contentLength, contentLength);
+    });
 }
 
 // 현재 메모 저장
