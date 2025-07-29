@@ -10,8 +10,10 @@ let syncQueue = [];
 let notes = [];
 let currentNoteId = null;
 let saveTimeout = null;
-const AUTOSAVE_DELAY = 300; // 300ms 디바운싱
-let isFirstLoad = true; // 첫 로드 여부 확인
+const AUTOSAVE_DELAY = 150; // 150ms로 단축
+let isFirstLoad = true;
+let renderQueue = [];
+let isRendering = false;
 
 // 사용자별 컬렉션 경로 생성
 function getNotesCollectionPath() {
@@ -54,7 +56,25 @@ const elements = {
 };
 
 // 빠른 DOM 준비를 위한 DOMContentLoaded
-document.addEventListener('DOMContentLoaded', initializeApp);
+document.addEventListener('DOMContentLoaded', fastInitializeApp);
+
+// 빠른 초기화 (UI 먼저 표시)
+async function fastInitializeApp() {
+    // DOM 요소 캐싱
+    cacheElements();
+    
+    // 이벤트 리스너 등록
+    setupEventListeners();
+    
+    // 즉시 UI 표시
+    showAuthScreen();
+    
+    // Firebase는 백그라운드에서 로드
+    setTimeout(async () => {
+        await loadFirebase();
+        await handleInitialAuth();
+    }, 0);
+}
 
 // PWA 관련 변수
 let deferredPrompt;
@@ -193,8 +213,8 @@ function showInstallSuccess() {
     }, 3000);
 }
 
-async function initializeApp() {
-    // DOM 요소 캐싱
+// DOM 요소 캐싱 함수
+function cacheElements() {
     elements.authScreen = document.getElementById('authScreen');
     elements.mainApp = document.getElementById('mainApp');
     elements.googleAuthBtn = document.getElementById('googleAuthBtn');
@@ -221,15 +241,16 @@ async function initializeApp() {
     elements.selectedCount = document.getElementById('selectedCount');
     elements.authDescription = document.getElementById('authDescription');
     elements.autoLoginLoading = document.getElementById('autoLoginLoading');
+}
 
-    // 이벤트 리스너 등록
-    setupEventListeners();
-    
-    // Firebase 초기화 대기
-    await waitForFirebase();
-    
-    // 첫 로드시 기존 세션 확인 및 처리
-    await handleInitialAuth();
+// 즉시 로그인 화면 표시
+function showAuthScreen() {
+    if (elements.authScreen) {
+        elements.authScreen.style.display = 'flex';
+    }
+    if (elements.mainApp) {
+        elements.mainApp.style.display = 'none';
+    }
 }
 
 // 인증된 사용자용 앱 초기화
@@ -259,25 +280,20 @@ async function initializeAuthenticatedApp() {
     }
 }
 
-// Firebase 초기화 대기
+// Firebase 빠른 로딩
 async function waitForFirebase() {
-    let retries = 0;
-    const maxRetries = 50;
-    
-    while ((!window.db || !window.auth) && retries < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        retries++;
+    if (!window.firebaseApp) {
+        await window.loadFirebase();
     }
     
     if (window.db && window.auth) {
         db = window.db;
         auth = window.auth;
         console.log('Firebase 연결 성공');
-    } else {
-        console.warn('Firebase 연결 실패 - 오프라인 모드로 실행');
-        // Firebase 연결 실패시에도 로그인 화면을 먼저 표시
-        showAuthScreen();
+        return;
     }
+    
+    console.warn('Firebase 연결 실패 - 오프라인 모드로 실행');
 }
 
 function setupEventListeners() {

@@ -25,16 +25,13 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
     
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-        import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        
-        // Firebase 설정 (사용자가 본인의 Firebase 프로젝트 설정으로 교체해야 함)
-        const firebaseConfig = {
+    <!-- Firebase SDK - 지연 로딩 -->
+    <script>
+        // Firebase 지연 로딩 및 최적화
+        window.firebaseConfig = {
              apiKey: "AIzaSyDPAb1RxfcZ8ZDurU9Ad8i7o3Qka4FyuN8",
              authDomain: "memoleodk.firebaseapp.com",
              projectId: "memoleodk",
@@ -43,10 +40,27 @@
              appId: "1:470307483075:web:0573ed90a7d0ea2559e176"
         };
         
-        // Firebase 초기화
-        window.firebaseApp = initializeApp(firebaseConfig);
-        window.db = getFirestore(window.firebaseApp);
-        window.auth = getAuth(window.firebaseApp);
+        // Firebase 모듈 동적 로딩
+        window.loadFirebase = async function() {
+            if (window.firebaseApp) return; // 이미 로드됨
+            
+            try {
+                const [firebaseApp, firestore, auth] = await Promise.all([
+                    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'),
+                    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js'),
+                    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js')
+                ]);
+                
+                window.firebaseApp = firebaseApp.initializeApp(window.firebaseConfig);
+                window.db = firestore.getFirestore(window.firebaseApp);
+                window.auth = auth.getAuth(window.firebaseApp);
+                window.firebaseModules = { auth, firestore };
+                
+                console.log('Firebase 모듈 로드 완료');
+            } catch (error) {
+                console.error('Firebase 로드 실패:', error);
+            }
+        };
     </script>
 </head>
 <body>

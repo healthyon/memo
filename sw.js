@@ -1,7 +1,7 @@
-// 서비스 워커 - PWA 캐싱 및 오프라인 지원
-const CACHE_NAME = 'memo-app-v1.0.3';
-const STATIC_CACHE = 'memo-static-v1.0.3';
-const DYNAMIC_CACHE = 'memo-dynamic-v1.0.3';
+// 서비스 워커 - PWA 캐싱 및 오프라인 지원 (최적화)
+const CACHE_NAME = 'memo-app-v1.0.4';
+const STATIC_CACHE = 'memo-static-v1.0.4';
+const DYNAMIC_CACHE = 'memo-dynamic-v1.0.4';
 
 const CACHE_URLS = [
   '.',
@@ -10,6 +10,10 @@ const CACHE_URLS = [
   './script.js',
   './manifest.json'
 ];
+
+// 프리로딩 최적화
+const PRIORITY_RESOURCES = ['./index.html', './style.css'];
+const LAZY_RESOURCES = ['./script.js', './manifest.json'];
 
 const FONT_URLS = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
@@ -24,23 +28,27 @@ const FIREBASE_URLS = [
   'gstatic.com/firebasejs'
 ];
 
-// 설치 이벤트 - 캐시 생성
+// 설치 이벤트 - 우선순위 기반 캐싱
 self.addEventListener('install', (event) => {
   console.log('서비스 워커 설치됨');
   
   event.waitUntil(
     Promise.all([
-      // 정적 파일 캐시
-      caches.open(STATIC_CACHE).then((cache) => {
-        console.log('정적 파일 캐시 생성');
-        return cache.addAll(CACHE_URLS);
+      // 우선순위 리소스 먼저 캐시
+      caches.open(STATIC_CACHE).then(async (cache) => {
+        console.log('우선순위 리소스 캐시');
+        await cache.addAll(PRIORITY_RESOURCES);
+        
+        // 나머지 리소스 백그라운드 캐시
+        setTimeout(() => {
+          cache.addAll(LAZY_RESOURCES).catch(console.warn);
+        }, 100);
       }),
-      // 폰트 파일 캐시
+      // 폰트 캐시 (백그라운드)
       caches.open(DYNAMIC_CACHE).then((cache) => {
-        console.log('동적 파일 캐시 생성');
-        return Promise.allSettled(
+        Promise.allSettled(
           FONT_URLS.map(url => 
-            fetch(url).then(response => {
+            fetch(url, { mode: 'cors' }).then(response => {
               if (response.ok) {
                 return cache.put(url, response);
               }
@@ -48,9 +56,7 @@ self.addEventListener('install', (event) => {
           )
         );
       })
-    ]).catch((error) => {
-      console.error('캐시 생성 실패:', error);
-    })
+    ]).catch(console.warn)
   );
   
   // 즉시 활성화
