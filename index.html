@@ -220,54 +220,95 @@
         let deferredPrompt;
         let installButton;
 
+        // PWA 설치 가능성 체크
+        function canInstallPWA() {
+            return 'serviceWorker' in navigator && 
+                   'BeforeInstallPromptEvent' in window;
+        }
+
         window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('PWA 설치 가능');
+            console.log('PWA 설치 프롬프트 준비됨');
             e.preventDefault();
             deferredPrompt = e;
-            
-            // 설치 버튼 생성 및 표시
-            if (!installButton) {
+            showInstallButton();
+        });
+
+        function showInstallButton() {
+            if (!installButton && deferredPrompt) {
                 installButton = document.createElement('button');
                 installButton.textContent = '앱 설치';
                 installButton.style.cssText = `
-                    position: fixed;
-                    bottom: 20px;
-                    right: 20px;
-                    background: #007aff;
-                    color: white;
-                    border: none;
-                    border-radius: 50px;
-                    padding: 12px 24px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-                    z-index: 10000;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    position: fixed !important;
+                    bottom: 20px !important;
+                    right: 20px !important;
+                    background: #007aff !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 25px !important;
+                    padding: 12px 20px !important;
+                    font-size: 14px !important;
+                    font-weight: 600 !important;
+                    cursor: pointer !important;
+                    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4) !important;
+                    z-index: 999999 !important;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                    transition: all 0.3s ease !important;
                 `;
                 
                 installButton.addEventListener('click', async () => {
                     if (deferredPrompt) {
-                        deferredPrompt.prompt();
-                        const { outcome } = await deferredPrompt.userChoice;
-                        console.log('설치 선택:', outcome);
+                        try {
+                            deferredPrompt.prompt();
+                            const { outcome } = await deferredPrompt.userChoice;
+                            console.log('사용자 선택:', outcome);
+                            
+                            if (outcome === 'accepted') {
+                                console.log('PWA 설치 승인');
+                            } else {
+                                console.log('PWA 설치 거부');
+                            }
+                        } catch (error) {
+                            console.error('설치 프롬프트 오류:', error);
+                        }
+                        
                         deferredPrompt = null;
-                        installButton.remove();
+                        hideInstallButton();
                     }
                 });
                 
                 document.body.appendChild(installButton);
+                console.log('설치 버튼 표시됨');
             }
-        });
+        }
 
-        // 앱 설치 완료 후 버튼 제거
-        window.addEventListener('appinstalled', () => {
-            console.log('PWA 설치 완료');
+        function hideInstallButton() {
             if (installButton) {
                 installButton.remove();
+                installButton = null;
+                console.log('설치 버튼 제거됨');
             }
+        }
+
+        // 앱 설치 완료 이벤트
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA 설치 완료!');
+            hideInstallButton();
             deferredPrompt = null;
         });
+
+        // iOS Safari 지원을 위한 추가 처리
+        function isIOSDevice() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        }
+
+        function isInStandaloneMode() {
+            return window.navigator.standalone === true;
+        }
+
+        // iOS에서 홈스크린 추가 안내
+        if (isIOSDevice() && !isInStandaloneMode()) {
+            console.log('iOS 기기에서 Safari 사용 중 - 홈 화면에 추가 가능');
+        }
     </script>
 </body>
 </html>

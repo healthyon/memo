@@ -1,17 +1,15 @@
 // 서비스 워커 - PWA 캐싱 및 오프라인 지원
-const CACHE_NAME = 'memo-app-v1.0.1';
-const STATIC_CACHE = 'memo-static-v1.0.1';
-const DYNAMIC_CACHE = 'memo-dynamic-v1.0.1';
+const CACHE_NAME = 'memo-app-v1.0.2';
+const STATIC_CACHE = 'memo-static-v1.0.2';
+const DYNAMIC_CACHE = 'memo-dynamic-v1.0.2';
 
 const CACHE_URLS = [
-  '/memo/',
-  '/memo/index.html',
-  '/memo/style.css',
-  '/memo/script.js',
-  '/memo/manifest.json',
-  '/memo/sw.js',
-  '/memo/icon-192.png',
-  '/memo/icon-512.png'
+  './',
+  './index.html',
+  './style.css',
+  './script.js',
+  './manifest.json',
+  './sw.js'
 ];
 
 const FONT_URLS = [
@@ -102,8 +100,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // 앱 리소스는 캐시 우선
-  if (requestUrl.pathname.startsWith('/memo/')) {
+  // 앱 리소스는 캐시 우선 (GitHub Pages 경로 고려)
+  if (requestUrl.pathname.includes('/memo/') || requestUrl.pathname === '/' || 
+      requestUrl.pathname.endsWith('.html') || requestUrl.pathname.endsWith('.css') || 
+      requestUrl.pathname.endsWith('.js') || requestUrl.pathname.endsWith('.json')) {
     event.respondWith(
       caches.match(event.request)
         .then((cachedResponse) => {
@@ -143,7 +143,7 @@ self.addEventListener('fetch', (event) => {
         .catch(() => {
           // 오프라인시 기본 페이지 반환
           if (event.request.destination === 'document') {
-            return caches.match('/memo/');
+            return caches.match('./');
           }
         })
     );
@@ -218,7 +218,7 @@ self.addEventListener('notificationclick', (event) => {
   
   if (event.action === 'explore') {
     event.waitUntil(
-      clients.openWindow('/memo/')
+      clients.openWindow('./')
     );
   }
 });
