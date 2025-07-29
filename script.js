@@ -382,18 +382,36 @@ function handleTextareaInput() {
 // 초기 인증 처리
 async function handleInitialAuth() {
     if (!auth) {
+        console.log('Firebase Auth 미초기화 - 로그인 화면 표시');
         showAuthScreen();
         return;
     }
     
     // 리다이렉트 결과 확인 (Google 로그인 리다이렉트 후)
-    await checkRedirectResult();
+    const hadRedirectResult = await checkRedirectResult();
     
-    // 첫 로드시 항상 로그인 화면 표시
-    showAuthScreen();
-    
-    // 인증 상태 모니터링 시작
+    // 인증 상태 모니터링 시작 (자동 로그인 감지)
     setupAuthStateListener();
+    
+    // 리다이렉트 결과가 없으면 현재 인증 상태 확인
+    if (!hadRedirectResult) {
+        // 현재 사용자 상태 확인
+        const currentAuthUser = auth.currentUser;
+        if (currentAuthUser) {
+            console.log('기존 세션 감지됨:', currentAuthUser.email);
+            // 이미 로그인된 상태라면 메인 앱 표시
+            currentUser = currentAuthUser;
+            updateUserInfo(currentAuthUser);
+            showAutoLoginLoading();
+            setTimeout(() => {
+                initializeAuthenticatedApp();
+                isFirstLoad = false;
+            }, 500);
+        } else {
+            console.log('기존 세션 없음 - 로그인 화면 표시');
+            showAuthScreen();
+        }
+    }
 }
 
 // 리다이렉트 결과 확인
@@ -421,35 +439,45 @@ async function checkRedirectResult() {
 function setupAuthStateListener() {
     if (!auth) return;
     
-    // onAuthStateChanged 동적 import
-    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js')
-        .then(({ onAuthStateChanged }) => {
-            onAuthStateChanged(auth, (user) => {
-                console.log('인증 상태 변경:', user ? `로그인됨 (${user.uid})` : '로그인 안됨');
-                console.log('isFirstLoad:', isFirstLoad);
-                
-                currentUser = user;
-                if (user && isFirstLoad) {
-                    // 첫 로드시 기존 세션이 있는 경우 (자동 로그인)
-                    console.log('자동 로그인 감지:', user.uid, user.email);
-                    updateUserInfo(user);
-                    
-                    showAutoLoginLoading();
-                    setTimeout(() => {
-                        console.log('자동 로그인 완료 - 메인 앱으로 전환');
-                        initializeAuthenticatedApp();
-                        isFirstLoad = false;
-                    }, 800);
-                } else if (!user) {
-                    // 인증되지 않은 경우에만 로그인 화면 표시
-                    console.log('로그인 필요 - 로그인 화면 표시');
-                    showAuthScreen();
-                    isFirstLoad = false;
-                }
-                // 사용자가 직접 로그인한 경우(!isFirstLoad && user)는 
-                // 로그인 함수에서 직접 처리하므로 여기서는 무시
+    // Firebase 모듈이 이미 로드되어 있는지 확인
+    const useFirebaseModules = window.firebaseModules && window.firebaseModules.auth;
+    
+    if (useFirebaseModules) {
+        // 이미 로드된 모듈 사용
+        const { onAuthStateChanged } = window.firebaseModules.auth;
+        onAuthStateChanged(auth, handleAuthStateChange);
+    } else {
+        // 동적 import
+        import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js')
+            .then(({ onAuthStateChanged }) => {
+                onAuthStateChanged(auth, handleAuthStateChange);
             });
-        });
+    }
+}
+
+// 인증 상태 변경 핸들러
+function handleAuthStateChange(user) {
+    console.log('인증 상태 변경:', user ? `로그인됨 (${user.email})` : '로그아웃됨');
+    
+    currentUser = user;
+    
+    if (user) {
+        // 로그인된 경우
+        console.log('사용자 로그인 확인:', user.uid);
+        updateUserInfo(user);
+        
+        // 이미 메인 앱이 표시되어 있지 않다면 초기화
+        if (elements.mainApp.style.display === 'none') {
+            console.log('메인 앱 초기화 시작');
+            initializeAuthenticatedApp();
+        }
+        isFirstLoad = false;
+    } else {
+        // 로그아웃된 경우
+        console.log('로그아웃 - 로그인 화면 표시');
+        showAuthScreen();
+        isFirstLoad = true; // 로그아웃 시 첫 로드 상태로 복원
+    }
 }
 
 // Google 로그인 처리
