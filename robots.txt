@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /memo/
+Sitemap: https://healthyon.github.io/memo/sitemap.xml
