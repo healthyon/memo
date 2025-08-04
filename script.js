@@ -1,10 +1,6 @@
-// Firebase와 Firestore 관련 변수
-let db = null;
-let auth = null;
+// 간단한 로컬 인증 시스템 변수
 let currentUser = null;
-let unsubscribeListener = null;
 let isOnline = navigator.onLine;
-let syncQueue = [];
 
 // 성능 최적화를 위한 전역 변수
 let notes = [];
@@ -31,10 +27,9 @@ let selectedNotes = new Set();
 const elements = {
     authScreen: null,
     mainApp: null,
-    googleAuthBtn: null,
-    anonymousAuthBtn: null,
-    googleAuthLoading: null,
-    anonymousAuthLoading: null,
+    userNameInput: null,
+    namedLoginBtn: null,
+    guestLoginBtn: null,
     userMenuBtn: null,
     userMenu: null,
     userAvatar: null,
@@ -62,9 +57,9 @@ document.addEventListener('DOMContentLoaded', fastInitializeApp);
 const APP_VERSION = 'v1.0.0';
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
-// 빠른 초기화 (UI 즉시 반응 + 백그라운드 로딩)
+// 간단한 앱 초기화 (Firebase 없이)
 async function fastInitializeApp() {
-    console.log('🚀 앱 초기화 시작');
+    console.log('🚀 간단한 메모장 앱 초기화 시작');
     
     // DOM 요소 캐싱
     cacheElements();
@@ -75,23 +70,8 @@ async function fastInitializeApp() {
     // 버전 정보 초기화
     initializeVersionInfo();
     
-    // 🔥 핵심 수정: Firebase를 먼저 로드한 후 인증 상태 확인
-    console.log('🔥 Firebase 로딩 시작...');
-    
-    try {
-        // Firebase 로드
-        await loadFirebase();
-        console.log('✅ Firebase 로딩 완료');
-        
-        // 인증 처리 - 이때 onAuthStateChanged가 자동으로 세션 복원 처리
-        console.log('🔐 인증 처리 시작...');
-        await handleInitialAuth();
-        console.log('✅ 인증 처리 완료');
-    } catch (error) {
-        console.error('❌ 초기화 오류:', error);
-        // Firebase 로드 실패시에만 로그인 화면 표시
-        showAuthScreen();
-    }
+    // 저장된 사용자 정보 확인
+    await checkSavedUser();
 }
 
 // PWA 관련 변수
@@ -246,10 +226,9 @@ function initializeVersionInfo() {
 function cacheElements() {
     elements.authScreen = document.getElementById('authScreen');
     elements.mainApp = document.getElementById('mainApp');
-    elements.googleAuthBtn = document.getElementById('googleAuthBtn');
-    elements.anonymousAuthBtn = document.getElementById('anonymousAuthBtn');
-    elements.googleAuthLoading = document.getElementById('googleAuthLoading');
-    elements.anonymousAuthLoading = document.getElementById('anonymousAuthLoading');
+    elements.userNameInput = document.getElementById('userNameInput');
+    elements.namedLoginBtn = document.getElementById('namedLoginBtn');
+    elements.guestLoginBtn = document.getElementById('guestLoginBtn');
     elements.userMenuBtn = document.getElementById('userMenuBtn');
     elements.userMenu = document.getElementById('userMenu');
     elements.userAvatar = document.getElementById('userAvatar');
@@ -310,67 +289,117 @@ async function initializeAuthenticatedApp() {
     }
 }
 
-// Firebase 로딩 함수 (개선된 버전)
-async function loadFirebase() {
-    if (window.firebaseApp && window.db && window.auth) {
-        console.log('✅ Firebase 이미 초기화됨');
-        db = window.db;
-        auth = window.auth;
+// === 간단한 로컬 인증 시스템 ===
+
+// 저장된 사용자 확인
+async function checkSavedUser() {
+    try {
+        const savedUser = localStorage.getItem('memo_user');
+        if (savedUser) {
+            const user = JSON.parse(savedUser);
+            console.log('✅ 저장된 사용자 발견:', user.name || '게스트');
+            currentUser = user;
+            
+            // 메모 로드 및 메인 앱 표시
+            await loadNotes();
+            updateUserInfo(user);
+            showMainApp();
+            renderNotes();
+        } else {
+            console.log('❌ 저장된 사용자 없음 - 로그인 화면 표시');
+            showAuthScreen();
+        }
+    } catch (error) {
+        console.error('사용자 정보 로드 오류:', error);
+        showAuthScreen();
+    }
+}
+
+// 이름으로 로그인
+function handleNamedLogin() {
+    const name = elements.userNameInput?.value?.trim();
+    if (!name) {
+        elements.userNameInput?.focus();
         return;
     }
     
-    try {
-        await window.loadFirebase();
-        
-        if (window.db && window.auth) {
-            db = window.db;
-            auth = window.auth;
-            console.log('✅ Firebase 연결 성공');
-        } else {
-            throw new Error('Firebase 서비스 초기화 실패');
-        }
-    } catch (error) {
-        console.error('❌ Firebase 연결 실패:', error);
-        throw error;
-    }
+    const user = {
+        id: generateId(),
+        name: name,
+        email: `${name}@local`,
+        isGuest: false,
+        loginTime: new Date().toISOString()
+    };
+    
+    loginUser(user);
 }
 
-// 레거시 지원 함수
-async function waitForFirebase() {
-    return loadFirebase();
+// 게스트로 로그인
+function handleGuestLogin() {
+    const user = {
+        id: generateId(),
+        name: '게스트',
+        email: 'guest@local',
+        isGuest: true,
+        loginTime: new Date().toISOString()
+    };
+    
+    loginUser(user);
 }
 
-// 세션 백업 확인 (Firebase 로드 전에 빠른 확인)
-function checkSessionBackup() {
-    try {
-        const sessionBackup = localStorage.getItem('memo_session_backup');
-        if (sessionBackup) {
-            const sessionInfo = JSON.parse(sessionBackup);
-            const lastLogin = new Date(sessionInfo.lastLogin);
-            const now = new Date();
-            const timeDiff = now - lastLogin;
-            
-            // 7일 이내 로그인 기록이 있으면 세션 복원 가능성 표시
-            if (timeDiff < 7 * 24 * 60 * 60 * 1000) {
-                console.log('세션 백업 발견 - Firebase Auth 로드 중...');
-                showAutoLoginLoading();
-                return true;
-            } else {
-                // 오래된 세션 백업 삭제
-                localStorage.removeItem('memo_session_backup');
-            }
-        }
-    } catch (error) {
-        console.warn('세션 백업 확인 실패:', error);
-        localStorage.removeItem('memo_session_backup');
+// 사용자 로그인 처리
+async function loginUser(user) {
+    console.log('🔐 사용자 로그인:', user.name);
+    
+    // 사용자 정보 저장
+    localStorage.setItem('memo_user', JSON.stringify(user));
+    currentUser = user;
+    
+    // 메모 로드
+    await loadNotes();
+    
+    // UI 업데이트
+    updateUserInfo(user);
+    showMainApp();
+    renderNotes();
+    
+    console.log('✅ 로그인 완료');
+}
+
+// 로그아웃 처리
+function handleLogout() {
+    console.log('🚪 로그아웃 처리');
+    
+    // 사용자 정보 삭제
+    localStorage.removeItem('memo_user');
+    currentUser = null;
+    
+    // 데이터 초기화
+    notes = [];
+    currentNoteId = null;
+    
+    // 로그인 화면 표시
+    showAuthScreen();
+    
+    // 입력 필드 초기화
+    if (elements.userNameInput) {
+        elements.userNameInput.value = '';
     }
-    return false;
+    
+    console.log('✅ 로그아웃 완료');
 }
 
 function setupEventListeners() {
-    // 인증 버튼들
-    elements.googleAuthBtn?.addEventListener('click', handleGoogleSignIn);
-    elements.anonymousAuthBtn?.addEventListener('click', handleAnonymousSignIn);
+    // 새로운 간단한 인증 버튼들
+    elements.namedLoginBtn?.addEventListener('click', handleNamedLogin);
+    elements.guestLoginBtn?.addEventListener('click', handleGuestLogin);
+    
+    // Enter 키로 로그인
+    elements.userNameInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleNamedLogin();
+        }
+    });
     
     // 사용자 메뉴
     elements.userMenuBtn?.addEventListener('click', toggleUserMenu);
@@ -917,44 +946,9 @@ function updateUserInfo(user) {
     }
 }
 
-// Firebase에서 메모 로드 및 실시간 리스너 설정
+// 로컬스토리지에서 메모 로드
 async function loadNotes() {
-    if (!db) {
-        loadNotesFromLocalStorage();
-        return;
-    }
-
-    try {
-        const { collection, onSnapshot, orderBy, query } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-        
-        // 사용자별 컬렉션 경로 사용
-        const collectionPath = getNotesCollectionPath();
-        
-        // 실시간 리스너 설정
-        const notesQuery = query(collection(db, collectionPath), orderBy('updatedAt', 'desc'));
-        
-        unsubscribeListener = onSnapshot(notesQuery, (snapshot) => {
-            notes = [];
-            snapshot.forEach((doc) => {
-                notes.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            // 로컬스토리지에도 백업 저장
-            saveNotesToLocalStorage();
-            renderNotes();
-        }, (error) => {
-            console.error('실시간 리스너 오류:', error);
-            // Firebase 오류 시 로컬스토리지에서 로드
-            loadNotesFromLocalStorage();
-        });
-        
-    } catch (error) {
-        console.error('Firebase 로드 오류:', error);
-        loadNotesFromLocalStorage();
-    }
+    loadNotesFromLocalStorage();
 }
 
 // 로컬스토리지에서 메모 로드 (백업용)
@@ -1010,35 +1004,23 @@ function saveNotesToLocalStorage() {
     }
 }
 
-// Firebase에 메모 저장
-async function saveNoteToFirebase(note, operation = 'update') {
-    if (!db || !isOnline) {
-        // 오프라인 상태일 때 sync queue에 추가
-        syncQueue.push({ note, operation });
-        saveNotesToLocalStorage();
-        return;
-    }
-
-    try {
-        const { doc, setDoc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-        
-        // 사용자별 컬렉션 경로 사용
-        const collectionPath = getNotesCollectionPath();
-        
-        if (operation === 'delete') {
-            await deleteDoc(doc(db, collectionPath, note.id));
+// 로컬스토리지에 메모 저장 (간단한 버전)
+async function saveNote(note, operation = 'update') {
+    if (operation === 'delete') {
+        // 메모 삭제
+        notes = notes.filter(n => n.id !== note.id);
+    } else {
+        // 메모 추가/업데이트
+        const existingIndex = notes.findIndex(n => n.id === note.id);
+        if (existingIndex >= 0) {
+            notes[existingIndex] = note;
         } else {
-            // 데이터 유효성 검증
-            const sanitizedNote = sanitizeNoteData(note);
-            await setDoc(doc(db, collectionPath, note.id), sanitizedNote);
+            notes.unshift(note);
         }
-        
-    } catch (error) {
-        console.error('Firebase 저장 오류:', error);
-        // 오류 시 sync queue에 추가
-        syncQueue.push({ note, operation });
-        saveNotesToLocalStorage();
     }
+    
+    // 로컬스토리지에 저장
+    saveNotesToLocalStorage();
 }
 
 // 동기화 큐 처리
@@ -1181,9 +1163,9 @@ function createNewNote() {
     // 즉시 모달 열기 (Firebase 저장은 백그라운드에서)
     openNote(newNote.id);
     
-    // Firebase 저장은 백그라운드에서 처리
+    // 로컬스토리지 저장은 백그라운드에서 처리
     setTimeout(() => {
-        saveNoteToFirebase(newNote).catch(console.warn);
+        saveNote(newNote).catch(console.warn);
     }, 0);
 }
 
@@ -1226,18 +1208,16 @@ async function saveCurrentNote() {
             notes.unshift(updatedNote);
         }
         
-        // Firebase에 저장
+        // 로컬스토리지에 저장
         try {
-            await saveNoteToFirebase(note);
+            await saveNote(note);
             console.log('메모 저장 완료:', note.id);
         } catch (error) {
             console.error('메모 저장 오류:', error);
         }
         
-        // Firebase 리스너가 없는 경우에만 직접 렌더링
-        if (!db || !unsubscribeListener) {
-            renderNotes();
-        }
+        // 화면 업데이트
+        renderNotes();
     }
 }
 
@@ -1267,9 +1247,9 @@ async function deleteCurrentNote() {
         // 로컬 배열에서 제거
         notes = notes.filter(note => note.id !== currentNoteId);
         
-        // Firebase에서 삭제
+        // 로컬스토리지에서 삭제
         try {
-            await saveNoteToFirebase(noteToDelete, 'delete');
+            await saveNote(noteToDelete, 'delete');
             console.log('메모 삭제 완료:', noteToDelete.id);
         } catch (error) {
             console.error('메모 삭제 오류:', error);
@@ -1277,10 +1257,8 @@ async function deleteCurrentNote() {
             notes.push(noteToDelete);
         }
         
-        // Firebase 리스너가 없는 경우에만 직접 렌더링
-        if (!db || !unsubscribeListener) {
-            renderNotes();
-        }
+        // 화면 업데이트
+        renderNotes();
         
         closeModal();
     }
@@ -1476,11 +1454,11 @@ async function deleteSelectedNotes() {
         const noteIdsToDelete = Array.from(selectedNotes);
         
         try {
-            // 각 메모를 Firebase에서 삭제
+            // 각 메모를 로컬스토리지에서 삭제
             for (const noteId of noteIdsToDelete) {
                 const noteToDelete = notes.find(note => note.id === noteId);
                 if (noteToDelete) {
-                    await saveNoteToFirebase(noteToDelete, 'delete');
+                    await saveNote(noteToDelete, 'delete');
                 }
             }
             
