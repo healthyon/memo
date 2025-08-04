@@ -52,21 +52,34 @@
                 ]);
                 
                 window.firebaseApp = firebaseApp.initializeApp(window.firebaseConfig);
-                window.db = firestore.getFirestore(window.firebaseApp);
                 window.auth = auth.getAuth(window.firebaseApp);
+                window.db = firestore.getFirestore(window.firebaseApp);
                 window.firebaseModules = { auth, firestore };
                 
-                // Auth persistence 설정 (로컬 저장소 사용으로 새로고침 시에도 유지)
-                try {
-                    await auth.setPersistence(window.auth, auth.browserLocalPersistence);
-                    console.log('Firebase Auth persistence 설정 완료 - 새로고침 시에도 로그인 유지');
-                } catch (error) {
-                    console.warn('Auth persistence 설정 실패, 기본 persistence 사용:', error);
-                }
+                // *** 중요: Auth persistence를 먼저 설정한 후 다른 작업 진행 ***
+                console.log('Firebase Auth persistence 설정 중...');
+                await auth.setPersistence(window.auth, auth.browserLocalPersistence);
+                console.log('✅ Firebase Auth persistence 설정 완료 - 브라우저 재시작까지 로그인 유지');
                 
-                console.log('Firebase 모듈 로드 완료');
+                // Auth 상태 복원 대기 (중요: persistence 설정 후)
+                return new Promise((resolve) => {
+                    const unsubscribe = auth.onAuthStateChanged(window.auth, (user) => {
+                        console.log('Auth 상태 초기화 완료:', user ? `로그인됨 (${user.email || '익명'})` : '로그아웃됨');
+                        unsubscribe(); // 초기 상태만 확인하고 리스너 해제
+                        resolve();
+                    });
+                    
+                    // 5초 타임아웃 (네트워크 문제 대비)
+                    setTimeout(() => {
+                        console.warn('Auth 상태 확인 타임아웃');
+                        unsubscribe();
+                        resolve();
+                    }, 5000);
+                });
+                
             } catch (error) {
                 console.error('Firebase 로드 실패:', error);
+                throw error;
             }
         };
     </script>

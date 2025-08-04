@@ -58,8 +58,10 @@ const elements = {
 // 빠른 DOM 준비를 위한 DOMContentLoaded
 document.addEventListener('DOMContentLoaded', fastInitializeApp);
 
-// 빠른 초기화 (UI 먼저 표시)
+// 빠른 초기화 (순서 최적화)
 async function fastInitializeApp() {
+    console.log('🚀 앱 초기화 시작');
+    
     // DOM 요소 캐싱
     cacheElements();
     
@@ -74,11 +76,19 @@ async function fastInitializeApp() {
         showAuthScreen();
     }
     
-    // Firebase는 백그라운드에서 로드
-    setTimeout(async () => {
+    // Firebase 즉시 로드 (지연 없이)
+    try {
+        console.log('🔥 Firebase 로딩 시작...');
         await loadFirebase();
+        console.log('✅ Firebase 로딩 완료');
+        
+        console.log('🔐 인증 처리 시작...');
         await handleInitialAuth();
-    }, 0);
+        console.log('✅ 인증 처리 완료');
+    } catch (error) {
+        console.error('❌ 초기화 오류:', error);
+        showAuthScreen();
+    }
 }
 
 // PWA 관련 변수
@@ -285,20 +295,34 @@ async function initializeAuthenticatedApp() {
     }
 }
 
-// Firebase 빠른 로딩
-async function waitForFirebase() {
-    if (!window.firebaseApp) {
-        await window.loadFirebase();
-    }
-    
-    if (window.db && window.auth) {
+// Firebase 로딩 함수 (개선된 버전)
+async function loadFirebase() {
+    if (window.firebaseApp && window.db && window.auth) {
+        console.log('✅ Firebase 이미 초기화됨');
         db = window.db;
         auth = window.auth;
-        console.log('Firebase 연결 성공');
         return;
     }
     
-    console.warn('Firebase 연결 실패 - 오프라인 모드로 실행');
+    try {
+        await window.loadFirebase();
+        
+        if (window.db && window.auth) {
+            db = window.db;
+            auth = window.auth;
+            console.log('✅ Firebase 연결 성공');
+        } else {
+            throw new Error('Firebase 서비스 초기화 실패');
+        }
+    } catch (error) {
+        console.error('❌ Firebase 연결 실패:', error);
+        throw error;
+    }
+}
+
+// 레거시 지원 함수
+async function waitForFirebase() {
+    return loadFirebase();
 }
 
 // 세션 백업 확인 (Firebase 로드 전에 빠른 확인)
@@ -411,51 +435,46 @@ function handleTextareaInput() {
 
 // === 인증 관련 함수들 ===
 
-// 초기 인증 처리
+// 초기 인증 처리 (간소화 및 안정성 개선)
 async function handleInitialAuth() {
     if (!auth) {
-        console.log('Firebase Auth 미초기화 - 로그인 화면 표시');
+        console.log('❌ Firebase Auth 미초기화');
         showAuthScreen();
         return;
     }
     
-    // 리다이렉트 결과 확인 (Google 로그인 리다이렉트 후)
-    const hadRedirectResult = await checkRedirectResult();
+    console.log('🔄 인증 상태 확인 시작...');
     
-    // 인증 상태 모니터링 시작 (자동 로그인 감지)
-    setupAuthStateListener();
-    
-    // 리다이렉트 결과가 없으면 현재 인증 상태 확인
-    if (!hadRedirectResult) {
-        // 현재 사용자 상태 확인 (세션 복원)
-        const currentAuthUser = auth.currentUser;
-        if (currentAuthUser) {
-            console.log('세션 복원 성공:', currentAuthUser.email || '익명 사용자');
-            // 이미 로그인된 상태라면 메인 앱 표시
-            currentUser = currentAuthUser;
-            updateUserInfo(currentAuthUser);
-            showAutoLoginLoading();
-            setTimeout(() => {
-                initializeAuthenticatedApp();
-                isFirstLoad = false;
-            }, 300); // 로딩 시간 단축
-        } else {
-            // Firebase Auth가 완전히 초기화될 때까지 잠시 대기
-            console.log('세션 확인 중...');
-            showAutoLoginLoading();
-            setTimeout(() => {
-                if (auth.currentUser) {
-                    console.log('지연된 세션 복원:', auth.currentUser.email || '익명 사용자');
-                    currentUser = auth.currentUser;
-                    updateUserInfo(auth.currentUser);
-                    initializeAuthenticatedApp();
-                    isFirstLoad = false;
-                } else {
-                    console.log('기존 세션 없음 - 로그인 화면 표시');
-                    showAuthScreen();
-                }
-            }, 1000); // Firebase Auth 초기화 대기
+    try {
+        // 리다이렉트 결과 확인
+        const hadRedirectResult = await checkRedirectResult();
+        
+        // Auth 상태 리스너 설정 (가장 중요!)
+        setupAuthStateListener();
+        
+        if (!hadRedirectResult) {
+            // 현재 사용자 즉시 확인
+            const user = auth.currentUser;
+            if (user) {
+                console.log('✅ 즉시 세션 복원:', user.email || '익명 사용자');
+                handleUserLogin(user);
+            } else {
+                // onAuthStateChanged에서 처리될 것이므로 잠시 대기
+                console.log('⏳ Auth 상태 변경 대기 중...');
+                showAutoLoginLoading();
+                
+                // 3초 후에도 로그인되지 않으면 로그인 화면 표시
+                setTimeout(() => {
+                    if (!currentUser) {
+                        console.log('❌ 세션 없음 - 로그인 화면 표시');
+                        showAuthScreen();
+                    }
+                }, 3000);
+            }
         }
+    } catch (error) {
+        console.error('인증 처리 오류:', error);
+        showAuthScreen();
     }
 }
 
@@ -480,9 +499,14 @@ async function checkRedirectResult() {
     return false;
 }
 
-// 인증 상태 리스너 설정
+// 인증 상태 리스너 설정 (개선된 버전)
 function setupAuthStateListener() {
-    if (!auth) return;
+    if (!auth) {
+        console.error('❌ Auth가 초기화되지 않음');
+        return;
+    }
+    
+    console.log('🔗 Auth 상태 리스너 설정 중...');
     
     // Firebase 모듈이 이미 로드되어 있는지 확인
     const useFirebaseModules = window.firebaseModules && window.firebaseModules.auth;
@@ -490,56 +514,98 @@ function setupAuthStateListener() {
     if (useFirebaseModules) {
         // 이미 로드된 모듈 사용
         const { onAuthStateChanged } = window.firebaseModules.auth;
-        onAuthStateChanged(auth, handleAuthStateChange);
+        const unsubscribe = onAuthStateChanged(auth, handleAuthStateChange);
+        console.log('✅ Auth 상태 리스너 설정 완료');
+        
+        // 페이지 언로드 시 리스너 해제
+        window.addEventListener('beforeunload', unsubscribe);
     } else {
-        // 동적 import
+        // 동적 import (fallback)
         import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js')
             .then(({ onAuthStateChanged }) => {
-                onAuthStateChanged(auth, handleAuthStateChange);
+                const unsubscribe = onAuthStateChanged(auth, handleAuthStateChange);
+                console.log('✅ Auth 상태 리스너 설정 완료 (동적 로드)');
+                window.addEventListener('beforeunload', unsubscribe);
+            })
+            .catch(error => {
+                console.error('❌ Auth 리스너 설정 실패:', error);
             });
     }
 }
 
-// 인증 상태 변경 핸들러
+// 인증 상태 변경 핸들러 (완전히 개선된 버전)
 function handleAuthStateChange(user) {
-    console.log('인증 상태 변경:', user ? `로그인됨 (${user.email || '익명 사용자'})` : '로그아웃됨');
+    console.log('🔄 Auth 상태 변경:', user ? `✅ 로그인됨 (${user.email || '익명 사용자'})` : '❌ 로그아웃됨');
     
     currentUser = user;
     
     if (user) {
-        // 로그인된 경우 (새로고침 후 세션 복원 포함)
-        console.log('사용자 세션 복원/로그인 확인:', user.uid);
-        updateUserInfo(user);
+        console.log('👤 사용자 정보:', {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            isAnonymous: user.isAnonymous,
+            emailVerified: user.emailVerified
+        });
         
-        // 세션 정보를 로컬스토리지에 백업 저장
-        try {
-            const sessionInfo = {
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-                isAnonymous: user.isAnonymous,
-                lastLogin: new Date().toISOString()
-            };
-            localStorage.setItem('memo_session_backup', JSON.stringify(sessionInfo));
-        } catch (error) {
-            console.warn('세션 백업 저장 실패:', error);
-        }
-        
-        // 이미 메인 앱이 표시되어 있지 않다면 초기화
-        if (elements.mainApp.style.display === 'none') {
-            console.log('메인 앱 초기화 시작');
-            initializeAuthenticatedApp();
-        }
-        isFirstLoad = false;
+        handleUserLogin(user);
     } else {
-        // 로그아웃된 경우
-        console.log('로그아웃 - 로그인 화면 표시');
-        // 세션 백업 정보 삭제
-        localStorage.removeItem('memo_session_backup');
-        showAuthScreen();
-        isFirstLoad = true; // 로그아웃 시 첫 로드 상태로 복원
+        handleUserLogout();
     }
+}
+
+// 사용자 로그인 처리 (공통 함수)
+function handleUserLogin(user) {
+    console.log('🔐 사용자 로그인 처리 시작');
+    
+    // 사용자 정보 업데이트
+    updateUserInfo(user);
+    
+    // 세션 정보를 로컬스토리지에 백업 저장
+    try {
+        const sessionInfo = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            isAnonymous: user.isAnonymous,
+            lastLogin: new Date().toISOString()
+        };
+        localStorage.setItem('memo_session_backup', JSON.stringify(sessionInfo));
+        console.log('💾 세션 백업 저장 완료');
+    } catch (error) {
+        console.warn('⚠️ 세션 백업 저장 실패:', error);
+    }
+    
+    // 메인 앱이 표시되어 있지 않다면 초기화
+    if (elements.mainApp.style.display === 'none') {
+        console.log('🚀 메인 앱 초기화 시작');
+        initializeAuthenticatedApp();
+    }
+    
+    isFirstLoad = false;
+}
+
+// 사용자 로그아웃 처리 (공통 함수)
+function handleUserLogout() {
+    console.log('🚪 사용자 로그아웃 처리');
+    
+    // 세션 백업 정보 삭제
+    localStorage.removeItem('memo_session_backup');
+    
+    // Firestore 리스너 해제
+    if (unsubscribeListener) {
+        unsubscribeListener();
+        unsubscribeListener = null;
+    }
+    
+    // 데이터 초기화
+    notes = [];
+    currentNoteId = null;
+    
+    // 로그인 화면 표시
+    showAuthScreen();
+    isFirstLoad = true;
 }
 
 // Google 로그인 처리
