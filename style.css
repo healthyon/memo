@@ -1284,3 +1284,36 @@ body:not(.selection-mode) .note-content {
         height: 14px;
     }
 }
+
+/* 버전 정보 표시 */
+.version-info {
+    position: fixed;
+    bottom: 8px;
+    right: 8px;
+    font-size: 9px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.3s ease;
+}
+
+.version-info:hover {
+    opacity: 0.9;
+}
+
+/* 다크모드에서 버전 정보 */
+@media (prefers-color-scheme: dark) {
+    .version-info {
+        background: rgba(0, 0, 0, 0.7);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.6);
+    }
+}

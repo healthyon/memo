@@ -58,6 +58,10 @@ const elements = {
 // 빠른 DOM 준비를 위한 DOMContentLoaded
 document.addEventListener('DOMContentLoaded', fastInitializeApp);
 
+// 버전 정보 설정 (Git 커밋 해시 기반)
+const APP_VERSION = 'v1.0.0';
+const BUILD_DATE = new Date().toISOString().split('T')[0];
+
 // 빠른 초기화 (UI 즉시 반응 + 백그라운드 로딩)
 async function fastInitializeApp() {
     console.log('🚀 앱 초기화 시작');
@@ -67,6 +71,9 @@ async function fastInitializeApp() {
     
     // 이벤트 리스너 등록
     setupEventListeners();
+    
+    // 버전 정보 초기화
+    initializeVersionInfo();
     
     // 🔥 핵심 수정: Firebase를 먼저 로드한 후 인증 상태 확인
     console.log('🔥 Firebase 로딩 시작...');
@@ -224,6 +231,17 @@ function showInstallSuccess() {
     }, 3000);
 }
 
+// 버전 정보 초기화
+function initializeVersionInfo() {
+    if (elements.versionInfo) {
+        // 버전 정보 표시 (커밋 해시 + 빌드 날짜)
+        elements.versionInfo.textContent = `${APP_VERSION}`;
+        elements.versionInfo.title = `Build: ${BUILD_DATE}`;
+        
+        console.log(`📱 앱 버전: ${APP_VERSION} (${BUILD_DATE})`);
+    }
+}
+
 // DOM 요소 캐싱 함수
 function cacheElements() {
     elements.authScreen = document.getElementById('authScreen');
@@ -252,6 +270,7 @@ function cacheElements() {
     elements.selectedCount = document.getElementById('selectedCount');
     elements.authDescription = document.getElementById('authDescription');
     elements.autoLoginLoading = document.getElementById('autoLoginLoading');
+    elements.versionInfo = document.getElementById('versionInfo');
 }
 
 // 즉시 로그인 화면 표시

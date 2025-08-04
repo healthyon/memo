@@ -1,0 +1,48 @@
+name: Update Version on Push
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Get short commit hash
+      id: hash
+      run: echo "short_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    
+    - name: Update version in files
+      run: |
+        # Update version in index.html
+        sed -i "s/<div class=\"version-info\" id=\"versionInfo\">v[^<]*</<div class=\"version-info\" id=\"versionInfo\">v${{ steps.hash.outputs.short_hash }}</g" index.html
+        
+        # Update version in script.js
+        sed -i "s/const APP_VERSION = 'v[^']*';/const APP_VERSION = 'v${{ steps.hash.outputs.short_hash }}';/g" script.js
+        
+        echo "Updated version to v${{ steps.hash.outputs.short_hash }}"
+    
+    - name: Check if files were modified
+      id: verify-changed-files
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Commit version update
+      if: steps.verify-changed-files.outputs.changed == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add index.html script.js
+        git commit -m "🔖 Auto-update version to v${{ steps.hash.outputs.short_hash }}"
+        git push
