@@ -56,14 +56,13 @@
                 window.auth = auth.getAuth(window.firebaseApp);
                 window.firebaseModules = { auth, firestore };
                 
-                // Auth persistence 설정 (브라우저 세션 유지)
-                auth.setPersistence(window.auth, auth.browserLocalPersistence)
-                    .then(() => {
-                        console.log('Firebase Auth persistence 설정 완료');
-                    })
-                    .catch((error) => {
-                        console.warn('Auth persistence 설정 실패:', error);
-                    });
+                // Auth persistence 설정 (로컬 저장소 사용으로 새로고침 시에도 유지)
+                try {
+                    await auth.setPersistence(window.auth, auth.browserLocalPersistence);
+                    console.log('Firebase Auth persistence 설정 완료 - 새로고침 시에도 로그인 유지');
+                } catch (error) {
+                    console.warn('Auth persistence 설정 실패, 기본 persistence 사용:', error);
+                }
                 
                 console.log('Firebase 모듈 로드 완료');
             } catch (error) {

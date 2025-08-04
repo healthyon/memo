@@ -66,8 +66,13 @@ async function fastInitializeApp() {
     // 이벤트 리스너 등록
     setupEventListeners();
     
-    // 즉시 UI 표시
-    showAuthScreen();
+    // 세션 백업 확인 (즉시 로그인 가능성 체크)
+    const hasSessionBackup = checkSessionBackup();
+    
+    // 세션 백업이 없으면 로그인 화면 표시
+    if (!hasSessionBackup) {
+        showAuthScreen();
+    }
     
     // Firebase는 백그라운드에서 로드
     setTimeout(async () => {
@@ -296,6 +301,33 @@ async function waitForFirebase() {
     console.warn('Firebase 연결 실패 - 오프라인 모드로 실행');
 }
 
+// 세션 백업 확인 (Firebase 로드 전에 빠른 확인)
+function checkSessionBackup() {
+    try {
+        const sessionBackup = localStorage.getItem('memo_session_backup');
+        if (sessionBackup) {
+            const sessionInfo = JSON.parse(sessionBackup);
+            const lastLogin = new Date(sessionInfo.lastLogin);
+            const now = new Date();
+            const timeDiff = now - lastLogin;
+            
+            // 7일 이내 로그인 기록이 있으면 세션 복원 가능성 표시
+            if (timeDiff < 7 * 24 * 60 * 60 * 1000) {
+                console.log('세션 백업 발견 - Firebase Auth 로드 중...');
+                showAutoLoginLoading();
+                return true;
+            } else {
+                // 오래된 세션 백업 삭제
+                localStorage.removeItem('memo_session_backup');
+            }
+        }
+    } catch (error) {
+        console.warn('세션 백업 확인 실패:', error);
+        localStorage.removeItem('memo_session_backup');
+    }
+    return false;
+}
+
 function setupEventListeners() {
     // 인증 버튼들
     elements.googleAuthBtn?.addEventListener('click', handleGoogleSignIn);
@@ -395,10 +427,10 @@ async function handleInitialAuth() {
     
     // 리다이렉트 결과가 없으면 현재 인증 상태 확인
     if (!hadRedirectResult) {
-        // 현재 사용자 상태 확인
+        // 현재 사용자 상태 확인 (세션 복원)
         const currentAuthUser = auth.currentUser;
         if (currentAuthUser) {
-            console.log('기존 세션 감지됨:', currentAuthUser.email);
+            console.log('세션 복원 성공:', currentAuthUser.email || '익명 사용자');
             // 이미 로그인된 상태라면 메인 앱 표시
             currentUser = currentAuthUser;
             updateUserInfo(currentAuthUser);
@@ -406,10 +438,23 @@ async function handleInitialAuth() {
             setTimeout(() => {
                 initializeAuthenticatedApp();
                 isFirstLoad = false;
-            }, 500);
+            }, 300); // 로딩 시간 단축
         } else {
-            console.log('기존 세션 없음 - 로그인 화면 표시');
-            showAuthScreen();
+            // Firebase Auth가 완전히 초기화될 때까지 잠시 대기
+            console.log('세션 확인 중...');
+            showAutoLoginLoading();
+            setTimeout(() => {
+                if (auth.currentUser) {
+                    console.log('지연된 세션 복원:', auth.currentUser.email || '익명 사용자');
+                    currentUser = auth.currentUser;
+                    updateUserInfo(auth.currentUser);
+                    initializeAuthenticatedApp();
+                    isFirstLoad = false;
+                } else {
+                    console.log('기존 세션 없음 - 로그인 화면 표시');
+                    showAuthScreen();
+                }
+            }, 1000); // Firebase Auth 초기화 대기
         }
     }
 }
@@ -457,14 +502,29 @@ function setupAuthStateListener() {
 
 // 인증 상태 변경 핸들러
 function handleAuthStateChange(user) {
-    console.log('인증 상태 변경:', user ? `로그인됨 (${user.email})` : '로그아웃됨');
+    console.log('인증 상태 변경:', user ? `로그인됨 (${user.email || '익명 사용자'})` : '로그아웃됨');
     
     currentUser = user;
     
     if (user) {
-        // 로그인된 경우
-        console.log('사용자 로그인 확인:', user.uid);
+        // 로그인된 경우 (새로고침 후 세션 복원 포함)
+        console.log('사용자 세션 복원/로그인 확인:', user.uid);
         updateUserInfo(user);
+        
+        // 세션 정보를 로컬스토리지에 백업 저장
+        try {
+            const sessionInfo = {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+                isAnonymous: user.isAnonymous,
+                lastLogin: new Date().toISOString()
+            };
+            localStorage.setItem('memo_session_backup', JSON.stringify(sessionInfo));
+        } catch (error) {
+            console.warn('세션 백업 저장 실패:', error);
+        }
         
         // 이미 메인 앱이 표시되어 있지 않다면 초기화
         if (elements.mainApp.style.display === 'none') {
@@ -475,6 +535,8 @@ function handleAuthStateChange(user) {
     } else {
         // 로그아웃된 경우
         console.log('로그아웃 - 로그인 화면 표시');
+        // 세션 백업 정보 삭제
+        localStorage.removeItem('memo_session_backup');
         showAuthScreen();
         isFirstLoad = true; // 로그아웃 시 첫 로드 상태로 복원
     }
