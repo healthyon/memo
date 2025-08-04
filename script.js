@@ -351,74 +351,122 @@ async function handleInitialAuth() {
     }
 }
 
-// 인증 상태 리스너 설정
-function setupAuthStateListener() {
+// 인증 상태 리스너 설정 (개선된 버전)
+async function setupAuthStateListener() {
     if (!auth) return;
     
-    const { onAuthStateChanged } = window.firebaseModules.auth;
-    onAuthStateChanged(auth, (user) => {
-        console.log('🔄 Auth 상태 변경:', user ? `로그인됨 (${user.email || '익명'})` : '로그아웃됨');
+    try {
+        // 동적으로 Firebase Auth 모듈 가져오기
+        const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
         
-        currentUser = user;
-        
-        if (user) {
-            updateUserInfo(user);
-            if (elements.mainApp.style.display === 'none') {
-                loadNotes().then(() => {
-                    showMainApp();
-                    renderNotes();
-                });
+        onAuthStateChanged(auth, (user) => {
+            console.log('🔄 Auth 상태 변경:', user ? `로그인됨 (${user.email || '익명'})` : '로그아웃됨');
+            
+            currentUser = user;
+            
+            if (user) {
+                updateUserInfo(user);
+                if (elements.mainApp.style.display === 'none') {
+                    loadNotes().then(() => {
+                        showMainApp();
+                        renderNotes();
+                    });
+                }
+            } else {
+                showAuthScreen();
             }
-        } else {
-            showAuthScreen();
-        }
-    });
+        });
+    } catch (error) {
+        console.error('❌ Auth 상태 리스너 설정 실패:', error);
+    }
 }
 
-// Google 로그인 처리 (간소화)
+// Google 로그인 처리 (개선된 버전)
 async function handleGoogleSignIn() {
-    if (!auth) {
-        await loadFirebase();
-        if (!auth) return;
-    }
+    console.log('🔵 Google 로그인 버튼 클릭됨');
     
     setAuthButtonLoading('google', true);
     
     try {
-        const { signInWithPopup, GoogleAuthProvider } = window.firebaseModules.auth;
+        // Firebase 로드 확인
+        if (!auth) {
+            console.log('🔄 Firebase 로딩 중...');
+            await loadFirebase();
+            if (!auth) {
+                throw new Error('Firebase Auth 초기화 실패');
+            }
+        }
+        
+        // 동적으로 Firebase Auth 모듈 가져오기
+        const { signInWithPopup, signInWithRedirect, GoogleAuthProvider, getRedirectResult } = 
+            await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        
         const provider = new GoogleAuthProvider();
         provider.addScope('profile');
         provider.addScope('email');
         
-        const result = await signInWithPopup(auth, provider);
-        console.log('✅ Google 로그인 성공:', result.user.email);
+        // 모바일 환경 체크
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        setAuthButtonLoading('google', false);
+        let result;
+        if (isMobile) {
+            // 모바일에서는 리다이렉트 방식 사용
+            console.log('📱 모바일 환경: 리다이렉트 방식 사용');
+            await signInWithRedirect(auth, provider);
+            return; // 리다이렉트되므로 여기서 종료
+        } else {
+            // 데스크톱에서는 팝업 방식 사용
+            console.log('💻 데스크톱 환경: 팝업 방식 사용');
+            result = await signInWithPopup(auth, provider);
+        }
+        
+        if (result) {
+            console.log('✅ Google 로그인 성공:', result.user.email);
+            setAuthButtonLoading('google', false);
+        }
+        
     } catch (error) {
         console.error('❌ Google 로그인 오류:', error);
         setAuthButtonLoading('google', false);
         
-        if (error.code !== 'auth/popup-closed-by-user') {
-            alert(`Google 로그인 오류: ${error.message}`);
+        if (error.code === 'auth/popup-closed-by-user') {
+            console.log('사용자가 팝업을 닫았습니다.');
+            return;
         }
+        
+        if (error.code === 'auth/popup-blocked') {
+            alert('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도해주세요.');
+            return;
+        }
+        
+        alert(`Google 로그인 오류: ${error.message}`);
     }
 }
 
-// 익명 로그인 처리
+// 익명 로그인 처리 (개선된 버전)
 async function handleAnonymousSignIn() {
-    if (!auth) {
-        await loadFirebase();
-        if (!auth) return;
-    }
+    console.log('👻 익명 로그인 버튼 클릭됨');
     
     setAuthButtonLoading('anonymous', true);
     
     try {
-        const { signInAnonymously } = window.firebaseModules.auth;
-        await signInAnonymously(auth);
+        // Firebase 로드 확인
+        if (!auth) {
+            console.log('🔄 Firebase 로딩 중...');
+            await loadFirebase();
+            if (!auth) {
+                throw new Error('Firebase Auth 초기화 실패');
+            }
+        }
+        
+        // 동적으로 Firebase Auth 모듈 가져오기
+        const { signInAnonymously } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        
+        const result = await signInAnonymously(auth);
         console.log('✅ 익명 로그인 성공');
         
         setAuthButtonLoading('anonymous', false);
+        
     } catch (error) {
         console.error('❌ 익명 로그인 오류:', error);
         setAuthButtonLoading('anonymous', false);
@@ -426,12 +474,14 @@ async function handleAnonymousSignIn() {
     }
 }
 
-// 로그아웃 처리
+// 로그아웃 처리 (개선된 버전)
 async function handleLogout() {
     if (!auth || !currentUser) return;
     
     try {
-        const { signOut } = window.firebaseModules.auth;
+        // 동적으로 Firebase Auth 모듈 가져오기
+        const { signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        
         await signOut(auth);
         console.log('✅ 로그아웃 성공');
     } catch (error) {
@@ -1004,7 +1054,7 @@ function updateUserInfo(user) {
     }
 }
 
-// Firebase에서 메모 로드
+// Firebase에서 메모 로드 (개선된 버전)
 async function loadNotes() {
     if (!db) {
         loadNotesFromLocalStorage();
@@ -1012,7 +1062,10 @@ async function loadNotes() {
     }
 
     try {
-        const { collection, onSnapshot, orderBy, query } = window.firebaseModules.firestore;
+        // 동적으로 Firestore 모듈 가져오기
+        const { collection, onSnapshot, orderBy, query } = 
+            await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+            
         const collectionPath = getNotesCollectionPath();
         const notesQuery = query(collection(db, collectionPath), orderBy('updatedAt', 'desc'));
         
@@ -1095,7 +1148,7 @@ function saveNotesToLocalStorage() {
     }
 }
 
-// Firebase에 메모 저장
+// Firebase에 메모 저장 (개선된 버전)
 async function saveNoteToFirebase(note, operation = 'update') {
     if (!db || !isOnline) {
         syncQueue.push({ note, operation });
@@ -1104,7 +1157,10 @@ async function saveNoteToFirebase(note, operation = 'update') {
     }
 
     try {
-        const { doc, setDoc, deleteDoc } = window.firebaseModules.firestore;
+        // 동적으로 Firestore 모듈 가져오기
+        const { doc, setDoc, deleteDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+            
         const collectionPath = getNotesCollectionPath();
         
         if (operation === 'delete') {
