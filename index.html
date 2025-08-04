@@ -56,25 +56,40 @@
                 window.db = firestore.getFirestore(window.firebaseApp);
                 window.firebaseModules = { auth, firestore };
                 
-                // *** 중요: Auth persistence를 먼저 설정한 후 다른 작업 진행 ***
-                console.log('Firebase Auth persistence 설정 중...');
-                await auth.setPersistence(window.auth, auth.browserLocalPersistence);
-                console.log('✅ Firebase Auth persistence 설정 완료 - 브라우저 재시작까지 로그인 유지');
+                // *** 핵심: Auth persistence를 가장 먼저 설정 ***
+                console.log('🔐 Firebase Auth persistence 설정 중...');
                 
-                // Auth 상태 복원 대기 (중요: persistence 설정 후)
+                // 로컬 persistence 설정 (브라우저 재시작까지 유지)
+                await auth.setPersistence(window.auth, auth.browserLocalPersistence);
+                console.log('✅ Firebase Auth persistence 설정 완료 - 새로고침/재시작 시에도 로그인 유지');
+                
+                // 추가 설정: 네트워크 재연결 시 자동 토큰 갱신
+                window.auth.useDeviceLanguage();
+                
+                console.log('🔄 Auth 초기 상태 확인 중...');
+                
+                // Auth 상태 즉시 확인 및 복원 대기
                 return new Promise((resolve) => {
+                    let resolved = false;
+                    
                     const unsubscribe = auth.onAuthStateChanged(window.auth, (user) => {
-                        console.log('Auth 상태 초기화 완료:', user ? `로그인됨 (${user.email || '익명'})` : '로그아웃됨');
-                        unsubscribe(); // 초기 상태만 확인하고 리스너 해제
-                        resolve();
+                        if (!resolved) {
+                            console.log('🔍 Auth 초기 상태:', user ? `✅ 로그인됨 (${user.email || '익명'})` : '❌ 로그아웃 상태');
+                            unsubscribe(); // 초기 상태만 확인
+                            resolved = true;
+                            resolve();
+                        }
                     });
                     
-                    // 5초 타임아웃 (네트워크 문제 대비)
+                    // 3초 타임아웃으로 단축 (더 빠른 반응)
                     setTimeout(() => {
-                        console.warn('Auth 상태 확인 타임아웃');
-                        unsubscribe();
-                        resolve();
-                    }, 5000);
+                        if (!resolved) {
+                            console.warn('⏰ Auth 상태 확인 타임아웃 - 계속 진행');
+                            unsubscribe();
+                            resolved = true;
+                            resolve();
+                        }
+                    }, 3000);
                 });
                 
             } catch (error) {

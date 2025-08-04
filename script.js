@@ -58,7 +58,7 @@ const elements = {
 // 빠른 DOM 준비를 위한 DOMContentLoaded
 document.addEventListener('DOMContentLoaded', fastInitializeApp);
 
-// 빠른 초기화 (순서 최적화)
+// 빠른 초기화 (UI 즉시 반응 + 백그라운드 로딩)
 async function fastInitializeApp() {
     console.log('🚀 앱 초기화 시작');
     
@@ -68,25 +68,21 @@ async function fastInitializeApp() {
     // 이벤트 리스너 등록
     setupEventListeners();
     
-    // 세션 백업 확인 (즉시 로그인 가능성 체크)
-    const hasSessionBackup = checkSessionBackup();
+    // 🔥 핵심 수정: Firebase를 먼저 로드한 후 인증 상태 확인
+    console.log('🔥 Firebase 로딩 시작...');
     
-    // 세션 백업이 없으면 로그인 화면 표시
-    if (!hasSessionBackup) {
-        showAuthScreen();
-    }
-    
-    // Firebase 즉시 로드 (지연 없이)
     try {
-        console.log('🔥 Firebase 로딩 시작...');
+        // Firebase 로드
         await loadFirebase();
         console.log('✅ Firebase 로딩 완료');
         
+        // 인증 처리 - 이때 onAuthStateChanged가 자동으로 세션 복원 처리
         console.log('🔐 인증 처리 시작...');
         await handleInitialAuth();
         console.log('✅ 인증 처리 완료');
     } catch (error) {
         console.error('❌ 초기화 오류:', error);
+        // Firebase 로드 실패시에만 로그인 화면 표시
         showAuthScreen();
     }
 }
@@ -435,7 +431,7 @@ function handleTextareaInput() {
 
 // === 인증 관련 함수들 ===
 
-// 초기 인증 처리 (간소화 및 안정성 개선)
+// 초기 인증 처리 (완전히 단순화)
 async function handleInitialAuth() {
     if (!auth) {
         console.log('❌ Firebase Auth 미초기화');
@@ -449,31 +445,21 @@ async function handleInitialAuth() {
         // 리다이렉트 결과 확인
         const hadRedirectResult = await checkRedirectResult();
         
-        // Auth 상태 리스너 설정 (가장 중요!)
+        // 🔥 핵심: Auth 상태 리스너만 설정하고 모든 것을 onAuthStateChanged에 위임
         setupAuthStateListener();
         
-        if (!hadRedirectResult) {
-            // 현재 사용자 즉시 확인
-            const user = auth.currentUser;
-            if (user) {
-                console.log('✅ 즉시 세션 복원:', user.email || '익명 사용자');
-                handleUserLogin(user);
-            } else {
-                // onAuthStateChanged에서 처리될 것이므로 잠시 대기
-                console.log('⏳ Auth 상태 변경 대기 중...');
-                showAutoLoginLoading();
-                
-                // 3초 후에도 로그인되지 않으면 로그인 화면 표시
-                setTimeout(() => {
-                    if (!currentUser) {
-                        console.log('❌ 세션 없음 - 로그인 화면 표시');
-                        showAuthScreen();
-                    }
-                }, 3000);
-            }
+        // onAuthStateChanged가 호출될 때까지 잠시 대기 표시
+        console.log('⏳ Auth 상태 리스너 대기 중...');
+        showAutoLoginLoading();
+        
+        // 리다이렉트 결과가 없고 즉시 사용자가 확인되면 처리
+        if (!hadRedirectResult && auth.currentUser) {
+            console.log('✅ 즉시 세션 발견:', auth.currentUser.email || '익명 사용자');
+            // handleUserLogin은 onAuthStateChanged에서 호출될 것임
         }
+        
     } catch (error) {
-        console.error('인증 처리 오류:', error);
+        console.error('❌ 인증 처리 오류:', error);
         showAuthScreen();
     }
 }
@@ -533,13 +519,14 @@ function setupAuthStateListener() {
     }
 }
 
-// 인증 상태 변경 핸들러 (완전히 개선된 버전)
+// 인증 상태 변경 핸들러 (세션 유지 최적화)
 function handleAuthStateChange(user) {
     console.log('🔄 Auth 상태 변경:', user ? `✅ 로그인됨 (${user.email || '익명 사용자'})` : '❌ 로그아웃됨');
     
     currentUser = user;
     
     if (user) {
+        // 로그인된 사용자 처리
         console.log('👤 사용자 정보:', {
             uid: user.uid,
             email: user.email,
@@ -549,8 +536,27 @@ function handleAuthStateChange(user) {
         });
         
         handleUserLogin(user);
+        
     } else {
-        handleUserLogout();
+        // 로그아웃 상태 - 단, 의도적인 로그아웃이 아닌 경우 잠시 대기
+        console.log('⚠️ 로그아웃 상태 감지');
+        
+        // 앱이 처음 로드되는 중이거나 Firebase가 아직 초기화 중일 수 있음
+        if (isFirstLoad) {
+            console.log('🔄 첫 로드 중 - 세션 복원 대기...');
+            
+            // 2초 대기 후에도 로그인되지 않으면 로그인 화면 표시
+            setTimeout(() => {
+                if (!currentUser && isFirstLoad) {
+                    console.log('❌ 세션 복원 실패 - 로그인 화면 표시');
+                    handleUserLogout();
+                }
+            }, 2000);
+        } else {
+            // 의도적인 로그아웃이거나 세션 만료
+            console.log('🚪 의도적 로그아웃 또는 세션 만료');
+            handleUserLogout();
+        }
     }
 }
 
@@ -814,8 +820,10 @@ function showAuthScreen() {
     if (elements.autoLoginLoading) elements.autoLoginLoading.style.display = 'none';
 }
 
-// 자동 로그인 로딩 표시
+// 자동 로그인 로딩 표시 (개선된 버전)
 function showAutoLoginLoading() {
+    console.log('⏳ 자동 로그인 로딩 화면 표시');
+    
     elements.authScreen.style.display = 'flex';
     elements.mainApp.style.display = 'none';
     
@@ -830,6 +838,12 @@ function showAutoLoginLoading() {
     // 자동 로그인 로딩 표시
     if (elements.autoLoginLoading) {
         elements.autoLoginLoading.style.display = 'block';
+        
+        // 로딩 메시지 업데이트
+        const loadingText = elements.autoLoginLoading.querySelector('p');
+        if (loadingText) {
+            loadingText.textContent = '세션 복원 중...';
+        }
     }
 }
 
