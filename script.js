@@ -1,6 +1,10 @@
-// 간단한 로컬 인증 시스템 변수
+// Firebase와 Firestore 관련 변수
+let db = null;
+let auth = null;
 let currentUser = null;
+let unsubscribeListener = null;
 let isOnline = navigator.onLine;
+let syncQueue = [];
 
 // 성능 최적화를 위한 전역 변수
 let notes = [];
@@ -27,9 +31,10 @@ let selectedNotes = new Set();
 const elements = {
     authScreen: null,
     mainApp: null,
-    userNameInput: null,
-    namedLoginBtn: null,
-    guestLoginBtn: null,
+    googleAuthBtn: null,
+    anonymousAuthBtn: null,
+    googleAuthLoading: null,
+    anonymousAuthLoading: null,
     userMenuBtn: null,
     userMenu: null,
     userAvatar: null,
@@ -57,9 +62,9 @@ document.addEventListener('DOMContentLoaded', fastInitializeApp);
 const APP_VERSION = 'v1.0.0';
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
-// 간단한 앱 초기화 (Firebase 없이)
+// Firebase와 함께 앱 초기화
 async function fastInitializeApp() {
-    console.log('🚀 간단한 메모장 앱 초기화 시작');
+    console.log('🚀 메모장 앱 초기화 시작');
     
     // DOM 요소 캐싱
     cacheElements();
@@ -70,8 +75,14 @@ async function fastInitializeApp() {
     // 버전 정보 초기화
     initializeVersionInfo();
     
-    // 저장된 사용자 정보 확인
-    await checkSavedUser();
+    // Firebase 로드 및 인증 처리
+    try {
+        await loadFirebase();
+        await handleInitialAuth();
+    } catch (error) {
+        console.error('초기화 오류:', error);
+        showAuthScreen();
+    }
 }
 
 // PWA 관련 변수
@@ -226,9 +237,10 @@ function initializeVersionInfo() {
 function cacheElements() {
     elements.authScreen = document.getElementById('authScreen');
     elements.mainApp = document.getElementById('mainApp');
-    elements.userNameInput = document.getElementById('userNameInput');
-    elements.namedLoginBtn = document.getElementById('namedLoginBtn');
-    elements.guestLoginBtn = document.getElementById('guestLoginBtn');
+    elements.googleAuthBtn = document.getElementById('googleAuthBtn');
+    elements.anonymousAuthBtn = document.getElementById('anonymousAuthBtn');
+    elements.googleAuthLoading = document.getElementById('googleAuthLoading');
+    elements.anonymousAuthLoading = document.getElementById('anonymousAuthLoading');
     elements.userMenuBtn = document.getElementById('userMenuBtn');
     elements.userMenu = document.getElementById('userMenu');
     elements.userAvatar = document.getElementById('userAvatar');
@@ -289,117 +301,163 @@ async function initializeAuthenticatedApp() {
     }
 }
 
-// === 간단한 로컬 인증 시스템 ===
+// === Firebase 기반 인증 시스템 ===
 
-// 저장된 사용자 확인
-async function checkSavedUser() {
+// Firebase 로딩
+async function loadFirebase() {
+    if (window.db && window.auth) {
+        db = window.db;
+        auth = window.auth;
+        console.log('✅ Firebase 이미 초기화됨');
+        return;
+    }
+    
     try {
-        const savedUser = localStorage.getItem('memo_user');
-        if (savedUser) {
-            const user = JSON.parse(savedUser);
-            console.log('✅ 저장된 사용자 발견:', user.name || '게스트');
-            currentUser = user;
-            
-            // 메모 로드 및 메인 앱 표시
-            await loadNotes();
-            updateUserInfo(user);
-            showMainApp();
-            renderNotes();
-        } else {
-            console.log('❌ 저장된 사용자 없음 - 로그인 화면 표시');
-            showAuthScreen();
+        await window.loadFirebase();
+        if (window.db && window.auth) {
+            db = window.db;
+            auth = window.auth;
+            console.log('✅ Firebase 연결 성공');
         }
     } catch (error) {
-        console.error('사용자 정보 로드 오류:', error);
+        console.error('❌ Firebase 연결 실패:', error);
+        throw error;
+    }
+}
+
+// 초기 인증 처리
+async function handleInitialAuth() {
+    if (!auth) {
+        console.log('❌ Firebase Auth 미초기화');
+        showAuthScreen();
+        return;
+    }
+    
+    // 인증 상태 리스너 설정
+    setupAuthStateListener();
+    
+    // 현재 사용자 확인
+    const user = auth.currentUser;
+    if (user) {
+        console.log('✅ 기존 세션 발견:', user.email || '익명 사용자');
+        currentUser = user;
+        updateUserInfo(user);
+        await loadNotes();
+        showMainApp();
+        renderNotes();
+    } else {
+        console.log('❌ 기존 세션 없음');
         showAuthScreen();
     }
 }
 
-// 이름으로 로그인
-function handleNamedLogin() {
-    const name = elements.userNameInput?.value?.trim();
-    if (!name) {
-        elements.userNameInput?.focus();
-        return;
+// 인증 상태 리스너 설정
+function setupAuthStateListener() {
+    if (!auth) return;
+    
+    const { onAuthStateChanged } = window.firebaseModules.auth;
+    onAuthStateChanged(auth, (user) => {
+        console.log('🔄 Auth 상태 변경:', user ? `로그인됨 (${user.email || '익명'})` : '로그아웃됨');
+        
+        currentUser = user;
+        
+        if (user) {
+            updateUserInfo(user);
+            if (elements.mainApp.style.display === 'none') {
+                loadNotes().then(() => {
+                    showMainApp();
+                    renderNotes();
+                });
+            }
+        } else {
+            showAuthScreen();
+        }
+    });
+}
+
+// Google 로그인 처리 (간소화)
+async function handleGoogleSignIn() {
+    if (!auth) {
+        await loadFirebase();
+        if (!auth) return;
     }
     
-    const user = {
-        id: generateId(),
-        name: name,
-        email: `${name}@local`,
-        isGuest: false,
-        loginTime: new Date().toISOString()
-    };
+    setAuthButtonLoading('google', true);
     
-    loginUser(user);
+    try {
+        const { signInWithPopup, GoogleAuthProvider } = window.firebaseModules.auth;
+        const provider = new GoogleAuthProvider();
+        provider.addScope('profile');
+        provider.addScope('email');
+        
+        const result = await signInWithPopup(auth, provider);
+        console.log('✅ Google 로그인 성공:', result.user.email);
+        
+        setAuthButtonLoading('google', false);
+    } catch (error) {
+        console.error('❌ Google 로그인 오류:', error);
+        setAuthButtonLoading('google', false);
+        
+        if (error.code !== 'auth/popup-closed-by-user') {
+            alert(`Google 로그인 오류: ${error.message}`);
+        }
+    }
 }
 
-// 게스트로 로그인
-function handleGuestLogin() {
-    const user = {
-        id: generateId(),
-        name: '게스트',
-        email: 'guest@local',
-        isGuest: true,
-        loginTime: new Date().toISOString()
-    };
+// 익명 로그인 처리
+async function handleAnonymousSignIn() {
+    if (!auth) {
+        await loadFirebase();
+        if (!auth) return;
+    }
     
-    loginUser(user);
-}
-
-// 사용자 로그인 처리
-async function loginUser(user) {
-    console.log('🔐 사용자 로그인:', user.name);
+    setAuthButtonLoading('anonymous', true);
     
-    // 사용자 정보 저장
-    localStorage.setItem('memo_user', JSON.stringify(user));
-    currentUser = user;
-    
-    // 메모 로드
-    await loadNotes();
-    
-    // UI 업데이트
-    updateUserInfo(user);
-    showMainApp();
-    renderNotes();
-    
-    console.log('✅ 로그인 완료');
+    try {
+        const { signInAnonymously } = window.firebaseModules.auth;
+        await signInAnonymously(auth);
+        console.log('✅ 익명 로그인 성공');
+        
+        setAuthButtonLoading('anonymous', false);
+    } catch (error) {
+        console.error('❌ 익명 로그인 오류:', error);
+        setAuthButtonLoading('anonymous', false);
+        alert('로그인에 실패했습니다. 다시 시도해주세요.');
+    }
 }
 
 // 로그아웃 처리
-function handleLogout() {
-    console.log('🚪 로그아웃 처리');
+async function handleLogout() {
+    if (!auth || !currentUser) return;
     
-    // 사용자 정보 삭제
-    localStorage.removeItem('memo_user');
-    currentUser = null;
-    
-    // 데이터 초기화
-    notes = [];
-    currentNoteId = null;
-    
-    // 로그인 화면 표시
-    showAuthScreen();
-    
-    // 입력 필드 초기화
-    if (elements.userNameInput) {
-        elements.userNameInput.value = '';
+    try {
+        const { signOut } = window.firebaseModules.auth;
+        await signOut(auth);
+        console.log('✅ 로그아웃 성공');
+    } catch (error) {
+        console.error('❌ 로그아웃 오류:', error);
     }
+}
+
+// 인증 버튼 로딩 상태 설정
+function setAuthButtonLoading(type, loading) {
+    const button = type === 'google' ? elements.googleAuthBtn : elements.anonymousAuthBtn;
     
-    console.log('✅ 로그아웃 완료');
+    if (!button) return;
+    
+    if (loading) {
+        button.classList.add('loading');
+        button.disabled = true;
+    } else {
+        button.classList.remove('loading');
+        button.disabled = false;
+    }
 }
 
 function setupEventListeners() {
-    // 새로운 간단한 인증 버튼들
-    elements.namedLoginBtn?.addEventListener('click', handleNamedLogin);
-    elements.guestLoginBtn?.addEventListener('click', handleGuestLogin);
-    
-    // Enter 키로 로그인
-    elements.userNameInput?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            handleNamedLogin();
-        }
-    });
+    // Firebase 인증 버튼들
+    elements.googleAuthBtn?.addEventListener('click', handleGoogleSignIn);
+    elements.anonymousAuthBtn?.addEventListener('click', handleAnonymousSignIn);
     
     // 사용자 메뉴
     elements.userMenuBtn?.addEventListener('click', toggleUserMenu);
@@ -946,9 +1004,42 @@ function updateUserInfo(user) {
     }
 }
 
-// 로컬스토리지에서 메모 로드
+// Firebase에서 메모 로드
 async function loadNotes() {
-    loadNotesFromLocalStorage();
+    if (!db) {
+        loadNotesFromLocalStorage();
+        return;
+    }
+
+    try {
+        const { collection, onSnapshot, orderBy, query } = window.firebaseModules.firestore;
+        const collectionPath = getNotesCollectionPath();
+        const notesQuery = query(collection(db, collectionPath), orderBy('updatedAt', 'desc'));
+        
+        unsubscribeListener = onSnapshot(notesQuery, (snapshot) => {
+            notes = [];
+            snapshot.forEach((doc) => {
+                notes.push({ id: doc.id, ...doc.data() });
+            });
+            saveNotesToLocalStorage();
+            renderNotes();
+        }, (error) => {
+            console.error('실시간 리스너 오류:', error);
+            loadNotesFromLocalStorage();
+        });
+        
+    } catch (error) {
+        console.error('Firebase 로드 오류:', error);
+        loadNotesFromLocalStorage();
+    }
+}
+
+// 사용자별 컬렉션 경로 생성
+function getNotesCollectionPath() {
+    if (currentUser) {
+        return `users/${currentUser.uid}/notes`;
+    }
+    return 'notes';
 }
 
 // 로컬스토리지에서 메모 로드 (백업용)
@@ -1004,23 +1095,47 @@ function saveNotesToLocalStorage() {
     }
 }
 
-// 로컬스토리지에 메모 저장 (간단한 버전)
-async function saveNote(note, operation = 'update') {
-    if (operation === 'delete') {
-        // 메모 삭제
-        notes = notes.filter(n => n.id !== note.id);
-    } else {
-        // 메모 추가/업데이트
-        const existingIndex = notes.findIndex(n => n.id === note.id);
-        if (existingIndex >= 0) {
-            notes[existingIndex] = note;
+// Firebase에 메모 저장
+async function saveNoteToFirebase(note, operation = 'update') {
+    if (!db || !isOnline) {
+        syncQueue.push({ note, operation });
+        saveNotesToLocalStorage();
+        return;
+    }
+
+    try {
+        const { doc, setDoc, deleteDoc } = window.firebaseModules.firestore;
+        const collectionPath = getNotesCollectionPath();
+        
+        if (operation === 'delete') {
+            await deleteDoc(doc(db, collectionPath, note.id));
         } else {
-            notes.unshift(note);
+            const sanitizedNote = sanitizeNoteData(note);
+            await setDoc(doc(db, collectionPath, note.id), sanitizedNote);
+        }
+        
+    } catch (error) {
+        console.error('Firebase 저장 오류:', error);
+        syncQueue.push({ note, operation });
+        saveNotesToLocalStorage();
+    }
+}
+
+// 동기화 큐 처리
+async function processSyncQueue() {
+    if (!db || !isOnline || syncQueue.length === 0) return;
+
+    const queueCopy = [...syncQueue];
+    syncQueue = [];
+
+    for (const item of queueCopy) {
+        try {
+            await saveNoteToFirebase(item.note, item.operation);
+        } catch (error) {
+            console.error('동기화 오류:', error);
+            syncQueue.push(item);
         }
     }
-    
-    // 로컬스토리지에 저장
-    saveNotesToLocalStorage();
 }
 
 // 동기화 큐 처리
@@ -1163,9 +1278,9 @@ function createNewNote() {
     // 즉시 모달 열기 (Firebase 저장은 백그라운드에서)
     openNote(newNote.id);
     
-    // 로컬스토리지 저장은 백그라운드에서 처리
+    // Firebase 저장은 백그라운드에서 처리
     setTimeout(() => {
-        saveNote(newNote).catch(console.warn);
+        saveNoteToFirebase(newNote).catch(console.warn);
     }, 0);
 }
 
@@ -1208,16 +1323,18 @@ async function saveCurrentNote() {
             notes.unshift(updatedNote);
         }
         
-        // 로컬스토리지에 저장
+        // Firebase에 저장
         try {
-            await saveNote(note);
+            await saveNoteToFirebase(note);
             console.log('메모 저장 완료:', note.id);
         } catch (error) {
             console.error('메모 저장 오류:', error);
         }
         
-        // 화면 업데이트
-        renderNotes();
+        // Firebase 리스너가 없는 경우에만 직접 렌더링
+        if (!db || !unsubscribeListener) {
+            renderNotes();
+        }
     }
 }
 
@@ -1247,9 +1364,9 @@ async function deleteCurrentNote() {
         // 로컬 배열에서 제거
         notes = notes.filter(note => note.id !== currentNoteId);
         
-        // 로컬스토리지에서 삭제
+        // Firebase에서 삭제
         try {
-            await saveNote(noteToDelete, 'delete');
+            await saveNoteToFirebase(noteToDelete, 'delete');
             console.log('메모 삭제 완료:', noteToDelete.id);
         } catch (error) {
             console.error('메모 삭제 오류:', error);
@@ -1257,8 +1374,10 @@ async function deleteCurrentNote() {
             notes.push(noteToDelete);
         }
         
-        // 화면 업데이트
-        renderNotes();
+        // Firebase 리스너가 없는 경우에만 직접 렌더링
+        if (!db || !unsubscribeListener) {
+            renderNotes();
+        }
         
         closeModal();
     }
@@ -1295,6 +1414,23 @@ window.addEventListener('beforeunload', () => {
         unsubscribeListener();
     }
 });
+
+// 네트워크 상태 모니터링
+function setupNetworkStatusListener() {
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+}
+
+function handleOnline() {
+    isOnline = true;
+    console.log('온라인 상태로 변경');
+    processSyncQueue();
+}
+
+function handleOffline() {
+    isOnline = false;
+    console.log('오프라인 상태로 변경');
+}
 
 // 앱 visibility 변경 시 동기화
 document.addEventListener('visibilitychange', () => {
@@ -1454,11 +1590,11 @@ async function deleteSelectedNotes() {
         const noteIdsToDelete = Array.from(selectedNotes);
         
         try {
-            // 각 메모를 로컬스토리지에서 삭제
+            // 각 메모를 Firebase에서 삭제
             for (const noteId of noteIdsToDelete) {
                 const noteToDelete = notes.find(note => note.id === noteId);
                 if (noteToDelete) {
-                    await saveNote(noteToDelete, 'delete');
+                    await saveNoteToFirebase(noteToDelete, 'delete');
                 }
             }
             
